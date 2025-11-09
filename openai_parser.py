@@ -87,6 +87,15 @@ def parse_input_to_schema(input_path):
             f"```json\n{json_block}\n```\n\nError: {e}"
         )
 
+    # Fix areas_of_focus evidence field if broken
+for area in parsed_json.get("account_landscape", {}).get("areas_of_focus", []):
+    if not isinstance(area.get("evidence"), dict):
+        area["evidence"] = {
+            "stated_objectives": "Not Available",
+            "need_external_help": "Not Available",
+            "relationships_exist": "Not Available"
+        }
+
     # Enforce fallback schema safety
     parsed_json = inject_fallbacks(parsed_json)
 
