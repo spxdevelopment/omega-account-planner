@@ -178,8 +178,6 @@ def fill_missing_fields(data, default):
 
     return data
 
-
-
 def render_template_to_docx(template_path, json_data, output_path):
     try:
         schema = get_default_schema()
@@ -188,8 +186,15 @@ def render_template_to_docx(template_path, json_data, output_path):
         if not isinstance(cleaned_data.get("opportunity_win_plans"), list) or len(cleaned_data["opportunity_win_plans"]) == 0:
             cleaned_data["opportunity_win_plans"] = schema["opportunity_win_plans"]
 
-        # ✅ Sanity fix for evidence blocks to prevent crashes
-        for area in cleaned_data.get("account_landscape", {}).get("areas_of_focus", []):
+        # ✅ Safe fix for malformed account_landscape and evidence
+        account_landscape = cleaned_data.get("account_landscape", {})
+        if not isinstance(account_landscape, dict):
+            account_landscape = {"areas_of_focus": []}
+            cleaned_data["account_landscape"] = account_landscape
+
+        for area in account_landscape.get("areas_of_focus", []):
+            if not isinstance(area, dict):
+                continue
             if not isinstance(area.get("evidence"), dict):
                 area["evidence"] = {
                     "stated_objectives": "Not Available",
@@ -197,13 +202,14 @@ def render_template_to_docx(template_path, json_data, output_path):
                     "relationships_exist": "Not Available"
                 }
 
-        # ✅ Now render the template
+        # ✅ Render the Word template
         tpl = DocxTemplate(template_path)
         tpl.render(cleaned_data)
         tpl.save(output_path)
 
     except Exception as e:
         raise RuntimeError(f"Failed to render template: {e}")
+
 
 
 
