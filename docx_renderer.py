@@ -147,27 +147,37 @@ def fill_missing_fields(data, default):
     if isinstance(default, dict):
         if not isinstance(data, dict):
             return default
+
         for key, val in default.items():
             if key not in data:
                 data[key] = val
-          elif isinstance(val, dict):
-    if not isinstance(data[key], dict):
-        data[key] = val  # Force expected dict fallback
-    else:
-        data[key] = fill_missing_fields(data[key], val)
+            elif isinstance(val, dict):
+                if not isinstance(data[key], dict):
+                    data[key] = val  # Force replace with default dict
+                else:
+                    data[key] = fill_missing_fields(data[key], val)
             elif isinstance(val, list):
                 if not isinstance(data[key], list) or len(data[key]) == 0:
                     data[key] = val
                 else:
-                    data[key] = [
-                        fill_missing_fields(item, val[0]) if isinstance(item, dict) else item
-                        for item in data[key]
-                    ]
+                    new_list = []
+                    for item in data[key]:
+                        if isinstance(val[0], dict):
+                            # Ensure every list item conforms to the expected structure
+                            if not isinstance(item, dict):
+                                new_list.append(val[0])  # fallback
+                            else:
+                                new_list.append(fill_missing_fields(item, val[0]))
+                        else:
+                            new_list.append(item)
+                    data[key] = new_list
     elif isinstance(default, list):
         if not isinstance(data, list) or len(data) == 0:
             return default
         return [fill_missing_fields(item, default[0]) for item in data]
+
     return data
+
 
 
 def render_template_to_docx(template_path, json_data, output_path):
@@ -184,4 +194,5 @@ def render_template_to_docx(template_path, json_data, output_path):
 
     except Exception as e:
         raise RuntimeError(f"Failed to render template: {e}")
+
 
