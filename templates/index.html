@@ -2,56 +2,102 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <title>Omega Account Planner | SalesSparx</title>
+  <title>Omega Account Plan Automation</title>
   <style>
     body {
-      font-family: 'Avenir', sans-serif;
-      background-color: #000;
-      color: #fff;
+      font-family: 'Segoe UI', sans-serif;
+      background-color: #ffffff;
+      color: #333;
       text-align: center;
       padding: 40px;
     }
 
     .container {
-      background: #147E76;
-      padding: 30px;
-      border-radius: 10px;
+      background: #F0F4F8;
+      padding: 40px;
+      border-radius: 12px;
       display: inline-block;
-      box-shadow: 0 0 15px rgba(0,0,0,0.3);
+      box-shadow: 0 0 15px rgba(0, 0, 0, 0.15);
+      max-width: 700px;
+      width: 100%;
+    }
+
+    h1 {
+      color: #147E76;
+      margin-bottom: 10px;
+    }
+
+    p.description {
+      font-size: 15px;
+      color: #555;
+      margin-bottom: 30px;
+    }
+
+    textarea {
+      width: 100%;
+      height: 120px;
+      padding: 10px;
+      border: 1px solid #ccc;
+      border-radius: 6px;
+      font-size: 14px;
+      resize: vertical;
+      margin-bottom: 20px;
     }
 
     input[type="file"] {
+      background: #E6F4EA;
       padding: 10px;
-      background: #FFF33B;
-      color: #000;
-      border: none;
-      margin: 20px 0;
+      margin-top: 10px;
+      font-size: 14px;
+      border: 1px solid #ccc;
+      border-radius: 6px;
       cursor: pointer;
+      margin-bottom: 20px;
     }
 
     button {
-      background-color: #CA2027;
-      color: white;
+      background-color: #000;
+      color: #fff;
       padding: 12px 30px;
       font-size: 16px;
       border: none;
       cursor: pointer;
+      border-radius: 6px;
+      margin-top: 10px;
     }
 
-    .result {
+    .note {
+      font-size: 13px;
+      color: #888;
       margin-top: 20px;
     }
   </style>
 </head>
 <body>
   <div class="container">
-    <h1>Upload Your Brief</h1>
-    <p>This tool will generate a locked .docx Account Plan using SalesSparx automation.</p>
+    <h1>Omega Account Plan Automation</h1>
+    <p class="description">
+      This tool auto-fills the official Omega Account Plan based on your input. <br />
+      You can either upload a file (PDF/DOCX) or paste raw notes/text into the field below.
+    </p>
+
     <form method="POST" enctype="multipart/form-data">
-      <input type="file" name="input_file" required>
-      <br/>
+      <label for="text_input"><strong>Option 1: Paste your brief below</strong></label><br>
+      <textarea name="text_input" placeholder="Paste your account info here..."></textarea>
+
+      <br>
+
+      <label for="input_file"><strong>Option 2: Upload PDF or DOCX file</strong></label><br>
+      <input type="file" name="input_file" accept=".pdf,.docx" />
+
+      <br>
       <button type="submit">Generate Account Plan</button>
     </form>
+
+    <div class="note">
+      ⚠️ If both fields are filled, the uploaded file will be prioritized.<br>
+      🧠 AI will extract, analyze, and generate a filled .docx plan.
+    </div>
   </div>
 </body>
 </html>
