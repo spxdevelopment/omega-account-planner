@@ -21,11 +21,10 @@ def extract_text_from_file(file_path):
 
 def parse_input_to_schema(file_path):
     raw_text = extract_text_from_file(file_path)
-    system_prompt = (
-        "You are an AI assistant that extracts data from business briefs. "
-        "Return a JSON object that exactly matches the Omega_Account_Plan_Schema.json format. "
-        "Insert 'Not Available' for missing values. Do not invent any data."
-    )
+
+    # Read your instruction prompt from file
+    with open("instructions.txt", "r") as f:
+        system_prompt = f.read()
 
     response = openai.ChatCompletion.create(
         model="gpt-4o",
@@ -41,3 +40,4 @@ def parse_input_to_schema(file_path):
     parsed = json.loads(result_json)
     name = parsed.get("account_overview", {}).get("account_name", None)
     return parsed, name
+
