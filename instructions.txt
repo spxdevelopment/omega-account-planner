@@ -65,7 +65,7 @@ Key sections include:
 ✅ DO maintain lists for repeating sections  
 ❌ DO NOT rename or omit fields  
 ❌ DO NOT guess data
-
+You must include all schema keys, even if no data is found. If data is missing, use "Not Available".”
 ====================================================
 RENDERING ENGINE  
 ====================================================
@@ -122,3 +122,4 @@ Always validate requirements.txt when deploying
 
 ====================================================
 END OF INSTRUCTIONS
+
