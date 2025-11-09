@@ -1,5 +1,5 @@
-from flask import Flask, request, send_file, jsonify
-from account_plan_parser import parse_input
+from flask import Flask, request, render_template, send_file
+from openai_parser import parse_input_to_schema
 from docx_renderer import render_template_to_docx
 import os
 import tempfile
