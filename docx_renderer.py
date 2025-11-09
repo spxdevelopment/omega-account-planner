@@ -2,7 +2,9 @@ import os
 import json
 from docxtpl import DocxTemplate
 
+
 def get_default_schema():
+    """Default fallback structure for all Omega Account Plan fields."""
     return {
         "account_overview": {
             "account_name": "Not Available",
@@ -108,35 +110,66 @@ def get_default_schema():
         }]
     }
 
+
 def fill_missing_fields(data, default):
+    """
+    Recursively fills missing fields in `data` using `default` schema.
+    Preserves valid data and ensures list fields have at least one entry.
+    """
     if isinstance(default, dict):
         if not isinstance(data, dict):
             return default
+
         for key, val in default.items():
             if key not in data:
                 data[key] = val
             elif isinstance(val, dict) and isinstance(data[key], dict):
                 data[key] = fill_missing_fields(data[key], val)
-            elif isinstance(val, list) and isinstance(data[key], list) and len(data[key]) == 0:
+            elif isinstance(val, list) and isinstance(data[key], list):
+                # Ensure list has at least one valid object
+                if len(data[key]) == 0:
+                    data[key] = val
+                else:
+                    data[key] = [
+                        fill_missing_fields(item, val[0])
+                        if isinstance(item, dict) else item
+                        for item in data[key]
+                    ]
+            elif isinstance(val, list) and (not isinstance(data[key], list)):
                 data[key] = val
-            else:
-                data[key] = fill_missing_fields(data[key], val)
+
     elif isinstance(default, list):
         if not isinstance(data, list) or len(data) == 0:
             return default
         else:
             return [fill_missing_fields(item, default[0]) for item in data]
+
     return data
 
+
 def render_template_to_docx(template_path, json_data, output_path):
+    """
+    Merges parsed account data into the locked DOCX template.
+    Ensures all schema fields are populated and avoids index errors.
+    """
     try:
         schema = get_default_schema()
+
+        # Merge schema with model data safely
         cleaned_data = fill_missing_fields(json_data, schema)
+
+        # Ensure opportunity_win_plans always has at least one item
+        if not isinstance(cleaned_data.get("opportunity_win_plans"), list) or len(cleaned_data["opportunity_win_plans"]) == 0:
+            cleaned_data["opportunity_win_plans"] = schema["opportunity_win_plans"]
+
+        # Debug log to verify what is being rendered (temporary)
+        with open("debug_render_input.json", "w", encoding="utf-8") as dbg:
+            json.dump(cleaned_data, dbg, indent=2)
+
+        # Render the Word template
         tpl = DocxTemplate(template_path)
         tpl.render(cleaned_data)
         tpl.save(output_path)
+
     except Exception as e:
         raise RuntimeError(f"Failed to render template: {e}")
-
-
-
