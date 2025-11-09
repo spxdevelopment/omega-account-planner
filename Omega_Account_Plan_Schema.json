@@ -37,7 +37,10 @@
     "white_space_with_signal": "",
     "white_space_without_signal": ""
   },
-  "customer_business_objectives": "",
+  "customer_business_objectives": {
+    "primary_objectives": [""],
+    "secondary_objectives": [""]
+  },
   "account_landscape": {
     "areas_of_focus": [
       {
