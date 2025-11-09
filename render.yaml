@@ -5,5 +5,4 @@ services:
     plan: free
     region: oregon
     buildCommand: pip install -r requirements.txt
-    startCommand: python app/app.py
-    autoDeploy: true
+    startCommand: python app.py
