@@ -40,7 +40,7 @@ def parse_input_to_schema(input_path):
     json_block = raw_output[start:end] if start != -1 and end != -1 else raw_output
 
     try:
-        parsed_json = json.loads(json_block)
+        parsed_json = json.loads(result)
     except Exception as e:
         raise ValueError(f"Failed to parse JSON from model output:\n\n{raw_output}\n\nError: {e}")
 
