@@ -2,4 +2,4 @@ Flask
 docxtpl
 python-docx
 PyMuPDF
-
+openai
