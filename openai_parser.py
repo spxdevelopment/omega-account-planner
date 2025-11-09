@@ -3,8 +3,43 @@ import json
 from openai import OpenAI
 from utils import extract_text_from_file
 
-# Initialize OpenAI client
 client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+
+# Known top-level required keys in schema
+REQUIRED_TOP_KEYS = [
+    "account_overview",
+    "omega_history",
+    "customer_health",
+    "fy26_path_to_plan_summary",
+    "customer_business_objectives",
+    "account_landscape",
+    "account_relationships",
+    "account_strategy",
+    "opportunity_win_plans"
+]
+
+def inject_fallbacks(data):
+    """Ensure required top-level schema keys are present and filled in."""
+    if not isinstance(data, dict):
+        raise ValueError("Expected parsed JSON to be a dictionary, got something else.")
+
+    for key in REQUIRED_TOP_KEYS:
+        if key not in data or not isinstance(data[key], (dict, list)):
+            # Assume dict default, unless key is specifically a list (like opportunity_win_plans)
+            if key == "opportunity_win_plans":
+                data[key] = []
+            else:
+                data[key] = {}
+
+    # Nested: Ensure omega_team exists inside account_overview
+    if "omega_team" not in data.get("account_overview", {}):
+        data["account_overview"]["omega_team"] = [{
+            "name": "Not Available",
+            "role_title": "Not Available",
+            "location": "Not Available"
+        }]
+
+    return data
 
 def parse_input_to_schema(input_path):
     """
@@ -12,13 +47,11 @@ def parse_input_to_schema(input_path):
     Always returns (parsed_json, account_name).
     """
 
-    # Step 1: Extract plain text
     text = extract_text_from_file(input_path)
-
     if not text or len(text.strip()) < 10:
         raise ValueError("Input content is empty or too short to process.")
 
-    # Step 2: Load your system instruction prompt
+    # Load prompt instructions
     with open("instructions.txt", "r", encoding="utf-8") as f:
         base_instructions = f.read()
 
@@ -30,7 +63,6 @@ def parse_input_to_schema(input_path):
         + "Your response must begin with '{' and end with '}'."
     )
 
-    # Step 3: Query GPT-4o
     response = client.chat.completions.create(
         model="gpt-4o",
         messages=[
@@ -40,15 +72,13 @@ def parse_input_to_schema(input_path):
         temperature=0.2,
     )
 
-    # Step 4: Extract model response
     raw_output = response.choices[0].message.content.strip()
 
-    # Step 5: Isolate the JSON block (sometimes model adds text or markdown fences)
+    # Extract JSON block from inside markdown (if any)
     start = raw_output.find("{")
     end = raw_output.rfind("}") + 1
     json_block = raw_output[start:end] if start != -1 and end != -1 else raw_output
 
-    # Step 6: Parse JSON safely
     try:
         parsed_json = json.loads(json_block)
     except Exception as e:
@@ -57,7 +87,8 @@ def parse_input_to_schema(input_path):
             f"```json\n{json_block}\n```\n\nError: {e}"
         )
 
-    # Step 7: Get account name safely
-    account_name = parsed_json.get("account_overview", {}).get("account_name", "Account_Plan_Output")
+    # Enforce fallback schema safety
+    parsed_json = inject_fallbacks(parsed_json)
 
+    account_name = parsed_json.get("account_overview", {}).get("account_name", "Account_Plan_Output")
     return parsed_json, account_name
