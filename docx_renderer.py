@@ -10,11 +10,13 @@ def extract_placeholders(template_path):
     placeholder_pattern = re.compile(r"\{\{\s*(.*?)\s*\}\}")
     found = set()
 
-    for block, _ in tpl.get_undeclared_template_variables():
-        found.add(block)
+    # Modern approach using docxtpl's built-in method
+    try:
+        found.update(tpl.get_undeclared_template_variables())
+    except Exception:
+        pass
 
-    # The older docxtpl versions may not expose get_undeclared_template_variables properly;
-    # fall back to regex if needed.
+    # Fallback: regex-based scan of paragraphs
     try:
         doc_xml = "\n".join([p.text for p in tpl.doc.paragraphs if p.text])
         for m in placeholder_pattern.findall(doc_xml):
@@ -75,3 +77,4 @@ def render_template_to_docx(template_path, json_data, output_path):
     # 4. Render and save
     tpl.render(safe_data)
     tpl.save(output_path)
+
