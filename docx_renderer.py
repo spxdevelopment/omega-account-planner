@@ -1,8 +1,7 @@
-import os
 import json
 from docxtpl import DocxTemplate
 
-# Helper: fallback for missing nested fields
+
 def enforce_schema_structure(data):
     if not isinstance(data.get("account_overview"), dict):
         data["account_overview"] = {}
@@ -17,7 +16,6 @@ def enforce_schema_structure(data):
     if not isinstance(data.get("opportunity_win_plans"), list):
         data["opportunity_win_plans"] = []
 
-    # Ensure nested fields in opportunity_win_plans
     for opp in data["opportunity_win_plans"]:
         if "alignment_questions" not in opp or not isinstance(opp["alignment_questions"], dict):
             opp["alignment_questions"] = {
@@ -73,7 +71,10 @@ def enforce_schema_structure(data):
             }
 
         if "red_flags" not in opp or not isinstance(opp["red_flags"], list):
-            opp["red_flags"] = [{"risk": "Not Available", "mitigation": "Not Available"}]
+            opp["red_flags"] = [{
+                "risk": "Not Available",
+                "mitigation": "Not Available"
+            }]
 
         if "opportunity_action_plan" not in opp or not isinstance(opp["opportunity_action_plan"], list):
             opp["opportunity_action_plan"] = [{
@@ -85,12 +86,22 @@ def enforce_schema_structure(data):
 
     return data
 
-# Core renderer
-def render_template(schema_json_path, template_path, output_path):
-    with open(schema_json_path, "r", encoding="utf-8") as f:
-        data = json.load(f)
 
-    # Inject safe fallbacks
+# ========= MAIN FUNCTION ========= #
+def render_template(input, template_path, output_path):
+    """
+    Accepts either:
+      - a JSON string path to a file, or
+      - a direct JSON dict
+    """
+    if isinstance(input, str):
+        with open(input, "r", encoding="utf-8") as f:
+            data = json.load(f)
+    elif isinstance(input, dict):
+        data = input
+    else:
+        raise ValueError("Invalid input: must be a dict or path to JSON file.")
+
     cleaned_data = enforce_schema_structure(data)
 
     tpl = DocxTemplate(template_path)
