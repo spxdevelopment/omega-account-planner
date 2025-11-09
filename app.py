@@ -10,7 +10,6 @@ app = Flask(__name__)
 def index():
     if request.method == "POST":
         try:
-            # Retrieve uploaded file and/or text input
             uploaded_file = request.files.get("input_file")
             text_input = request.form.get("text_input")
 
@@ -26,21 +25,24 @@ def index():
                     with open(input_path, "w", encoding="utf-8") as f:
                         f.write(text_input.strip())
 
-                # Parse input to Omega schema
+                # STEP 1: Parse text or file input into Omega schema JSON
                 parsed_json, account_name = parse_input_to_schema(input_path)
 
-                # Ensure fallback if no account name found
+                # STEP 2: Fallback if missing account name
                 account_name = account_name or "Account_Plan_Output"
-                output_filename = f"{account_name}_Account_Plan_v1_locked.docx"
+                account_name_clean = account_name.replace(" ", "_").replace("/", "_").strip()
+
+                output_filename = f"{account_name_clean}_Account_Plan_v1_locked.docx"
                 output_path = os.path.join(tmpdir, output_filename)
 
-                # Render template
+                # STEP 3: Render the template
                 render_template_to_docx(
                     template_path="Omega_Account_Plan_Template_v1_locked.docx",
                     json_data=parsed_json,
                     output_path=output_path
                 )
 
+                # STEP 4: Download trigger
                 return send_file(output_path, as_attachment=True, download_name=output_filename)
 
         except Exception as e:
