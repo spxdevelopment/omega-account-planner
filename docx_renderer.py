@@ -1,80 +1,98 @@
-from docxtpl import DocxTemplate, template
-import re
+import os
+import json
+from docxtpl import DocxTemplate
 
-def extract_placeholders(template_path):
-    """
-    Scan the .docx template and extract all Jinja placeholders
-    like {{ field }}, {{ account_overview.name }}, etc.
-    """
+# Helper: fallback for missing nested fields
+def enforce_schema_structure(data):
+    if not isinstance(data.get("account_overview"), dict):
+        data["account_overview"] = {}
+
+    if "omega_team" not in data["account_overview"] or not isinstance(data["account_overview"].get("omega_team"), list):
+        data["account_overview"]["omega_team"] = [{
+            "name": "Not Available",
+            "role_title": "Not Available",
+            "location": "Not Available"
+        }]
+
+    if not isinstance(data.get("opportunity_win_plans"), list):
+        data["opportunity_win_plans"] = []
+
+    # Ensure nested fields in opportunity_win_plans
+    for opp in data["opportunity_win_plans"]:
+        if "alignment_questions" not in opp or not isinstance(opp["alignment_questions"], dict):
+            opp["alignment_questions"] = {
+                "stated_objectives": "Not Available",
+                "need_external_help": "Not Available",
+                "relationships_exist": "Not Available"
+            }
+
+        if "svs8" not in opp or not isinstance(opp["svs8"], dict):
+            opp["svs8"] = {
+                "single_sales_objective_defined": "Not Available",
+                "coach_identified": "Not Available",
+                "insight_stories_selected": "Not Available",
+                "why_change_now": "Not Available",
+                "why_omega": "Not Available",
+                "business_case_developed": "Not Available",
+                "decision_process_understood": "Not Available",
+                "red_flags_present": "Not Available"
+            }
+
+        if "coach" not in opp or not isinstance(opp["coach"], dict):
+            opp["coach"] = {
+                "name": "Not Available",
+                "title_role": "Not Available",
+                "influence": "Not Available",
+                "notes": "Not Available"
+            }
+
+        if "insight_stories" not in opp or not isinstance(opp["insight_stories"], list):
+            opp["insight_stories"] = [{
+                "story": "Not Available",
+                "referenceable": "Not Available",
+                "omega_contact": "Not Available",
+                "notes": "Not Available"
+            }]
+
+        if "business_case" not in opp or not isinstance(opp["business_case"], dict):
+            opp["business_case"] = {
+                "solution": "Not Available",
+                "benefit": "Not Available"
+            }
+
+        if "decision_process" not in opp or not isinstance(opp["decision_process"], dict):
+            opp["decision_process"] = {
+                "buyers": {
+                    "economic": "Not Available",
+                    "coach": "Not Available",
+                    "technical": "Not Available",
+                    "user": "Not Available"
+                },
+                "process": "Not Available",
+                "criteria": "Not Available"
+            }
+
+        if "red_flags" not in opp or not isinstance(opp["red_flags"], list):
+            opp["red_flags"] = [{"risk": "Not Available", "mitigation": "Not Available"}]
+
+        if "opportunity_action_plan" not in opp or not isinstance(opp["opportunity_action_plan"], list):
+            opp["opportunity_action_plan"] = [{
+                "item": "Not Available",
+                "owner": "Not Available",
+                "due_date": "Not Available",
+                "completed_date": "Not Available"
+            }]
+
+    return data
+
+# Core renderer
+def render_template(schema_json_path, template_path, output_path):
+    with open(schema_json_path, "r", encoding="utf-8") as f:
+        data = json.load(f)
+
+    # Inject safe fallbacks
+    cleaned_data = enforce_schema_structure(data)
+
     tpl = DocxTemplate(template_path)
-    placeholder_pattern = re.compile(r"\{\{\s*(.*?)\s*\}\}")
-    found = set()
-
-    # Modern approach using docxtpl's built-in method
-    try:
-        found.update(tpl.get_undeclared_template_variables())
-    except Exception:
-        pass
-
-    # Fallback: regex-based scan of paragraphs
-    try:
-        doc_xml = "\n".join([p.text for p in tpl.doc.paragraphs if p.text])
-        for m in placeholder_pattern.findall(doc_xml):
-            found.add(m.split("|")[0].strip())  # ignore Jinja filters
-    except Exception:
-        pass
-
-    return list(found)
-
-def safe_insert(path, target_dict, value="Not Available"):
-    """
-    Create nested dict structure for a dotted path like 'account_overview.omega_team[0].name'
-    """
-    import re
-    parts = re.split(r"\.|\[|\]", path)
-    parts = [p for p in parts if p]
-    d = target_dict
-    for i, part in enumerate(parts):
-        last = i == len(parts) - 1
-        if last:
-            d[part] = value
-        else:
-            if part not in d or not isinstance(d[part], dict):
-                d[part] = {}
-            d = d[part]
-    return target_dict
-
-def fill_not_available(obj, fallback="Not Available"):
-    """
-    Recursively replace None, empty strings, or blanks with fallback.
-    """
-    if isinstance(obj, dict):
-        return {k: fill_not_available(v, fallback) for k, v in obj.items()}
-    elif isinstance(obj, list):
-        return [fill_not_available(i, fallback) for i in obj]
-    elif obj in ("", None):
-        return fallback
-    return obj
-
-def render_template_to_docx(template_path, json_data, output_path):
-    tpl = DocxTemplate(template_path)
-
-    # 1. Extract all placeholders from template
-    placeholders = extract_placeholders(template_path)
-
-    # 2. Build safe data dict covering all placeholders
-    safe_data = json_data.copy()
-    for ph in placeholders:
-        try:
-            safe_insert(ph, safe_data)
-        except Exception:
-            # silently skip any invalid Jinja expression
-            continue
-
-    # 3. Fill blanks
-    safe_data = fill_not_available(safe_data)
-
-    # 4. Render and save
-    tpl.render(safe_data)
+    tpl.render(cleaned_data)
     tpl.save(output_path)
-
