@@ -6,9 +6,12 @@ import tempfile
 
 app = Flask(__name__)
 
-@app.route("/", methods=["GET"])
-def health():
-    return jsonify({"status": "Omega Planner is online"}), 200
+@app.route("/", methods=["GET", "POST"])
+def index():
+    if request.method == "POST":
+        # Your file upload + processing logic here
+        ...
+    return render_template("index.html")
 
 @app.route("/generate", methods=["POST"])
 def generate_docx():
