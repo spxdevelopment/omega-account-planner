@@ -1,6 +1,6 @@
 from flask import Flask, request, send_file, jsonify
 from account_plan_parser import parse_input
-from docx_renderer import render_template
+from docx_renderer import render_template_to_docx
 import os
 import tempfile
 
