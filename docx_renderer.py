@@ -113,35 +113,26 @@ def fill_missing_fields(data, default):
         if not isinstance(data, dict):
             return default
         for key, val in default.items():
-           if key not in data:
-    data[key] = val
-elif isinstance(val, dict) and isinstance(data[key], dict):
-    data[key] = fill_missing_fields(data[key], val)
-elif isinstance(val, list) and isinstance(data[key], list) and data[key] == []:
-    data[key] = val
-
-            else:
+            if key not in data:
+                data[key] = val
+            elif isinstance(val, dict):
                 data[key] = fill_missing_fields(data[key], val)
+            elif isinstance(val, list) and isinstance(data[key], list) and not data[key]:
+                data[key] = val
+            elif isinstance(val, list) and isinstance(data[key], list):
+                data[key] = [fill_missing_fields(item, val[0]) for item in data[key]]
     elif isinstance(default, list):
-        if not isinstance(data, list) or len(data) == 0:
+        if not isinstance(data, list) or not data:
             return default
-        else:
-            return [fill_missing_fields(item, default[0]) for item in data]
+        return [fill_missing_fields(item, default[0]) for item in data]
     return data
 
 def render_template_to_docx(template_path, json_data, output_path):
     try:
-        # Load base structure
         schema = get_default_schema()
-
-        # Inject missing fields
         cleaned_data = fill_missing_fields(json_data, schema)
-
-        # Render
         tpl = DocxTemplate(template_path)
         tpl.render(cleaned_data)
         tpl.save(output_path)
-
     except Exception as e:
         raise RuntimeError(f"Failed to render template: {e}")
-
