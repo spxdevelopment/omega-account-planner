@@ -1,34 +1,35 @@
 from docxtpl import DocxTemplate
+import os
+
+REQUIRED_FIELDS = [
+    "account_overview",
+    "omega_history",
+    "customer_health",
+    "fy26_path_to_plan_summary",
+    "customer_business_objectives",
+    "account_landscape",
+    "account_relationships",
+    "account_strategy",
+    "opportunity_win_plans",
+    "omega_team"
+]
 
 def render_template_to_docx(template_path, json_data, output_path):
     tpl = DocxTemplate(template_path)
 
-    def inject_missing_keys(data, fallback="Not Available"):
+    def fill_missing(data, fallback="Not Available"):
         if isinstance(data, dict):
-            return {k: inject_missing_keys(v, fallback) for k, v in data.items()}
+            return {k: fill_missing(v, fallback) for k, v in data.items()}
         elif isinstance(data, list):
-            return [inject_missing_keys(item, fallback) for item in data]
-        elif data in (None, ""):
+            return [fill_missing(i, fallback) for i in data]
+        elif data is None or data == "":
             return fallback
         return data
 
-    safe_data = inject_missing_keys(json_data)
+    safe_data = fill_missing(json_data)
 
-    # Add any known missing sections
-    required_keys = [
-        "account_overview",
-        "omega_history",
-        "customer_health",
-        "fy26_path_to_plan_summary",
-        "customer_business_objectives",
-        "account_landscape",
-        "account_relationships",
-        "account_strategy",
-        "opportunity_win_plans",
-        "omega_team"
-    ]
-
-    for key in required_keys:
+    # Top-level schema patch
+    for key in REQUIRED_FIELDS:
         if key not in safe_data:
             safe_data[key] = "Not Available"
 
