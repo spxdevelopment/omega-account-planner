@@ -1,5 +1,6 @@
 from docxtpl import DocxTemplate
 
+# Top-level fields that must always exist in the schema
 REQUIRED_FIELDS = [
     "account_overview",
     "omega_history",
@@ -9,37 +10,68 @@ REQUIRED_FIELDS = [
     "account_landscape",
     "account_relationships",
     "account_strategy",
-    "opportunity_win_plans",
-    "omega_team"
+    "opportunity_win_plans"
 ]
+
+# Default nested structures that must also exist
+REQUIRED_STRUCTURE = {
+    "account_overview": {
+        "omega_team": [{
+            "name": "Not Available",
+            "role_title": "Not Available",
+            "location": "Not Available"
+        }]
+    },
+    "opportunity_win_plans": [{
+        "opportunity": "Not Available",
+        "description": "Not Available"
+    }],
+    "account_relationships": {
+        "executive_sponsors": ["Not Available"],
+        "decision_makers": ["Not Available"],
+        "influencers": ["Not Available"]
+    }
+}
+
+def fill_missing_fields(data, structure):
+    """
+    Recursively inject required nested fields.
+    """
+    for key, val in structure.items():
+        if key not in data:
+            data[key] = val
+        elif isinstance(val, dict) and isinstance(data[key], dict):
+            fill_missing_fields(data[key], val)
+        elif isinstance(val, list) and not isinstance(data[key], list):
+            data[key] = val
+    return data
+
+def fill_not_available(obj, fallback="Not Available"):
+    """
+    Recursively replace None, empty strings, or blanks with fallback.
+    """
+    if isinstance(obj, dict):
+        return {k: fill_not_available(v, fallback) for k, v in obj.items()}
+    elif isinstance(obj, list):
+        return [fill_not_available(i, fallback) for i in obj]
+    elif obj in ("", None):
+        return fallback
+    return obj
 
 def render_template_to_docx(template_path, json_data, output_path):
     tpl = DocxTemplate(template_path)
 
-    def fill_missing(data, fallback="Not Available"):
-        if isinstance(data, dict):
-            return {k: fill_missing(v, fallback) for k, v in data.items()}
-        elif isinstance(data, list):
-            return [fill_missing(i, fallback) for i in data]
-        elif data in (None, ""):
-            return fallback
-        return data
+    # Step 1: Ensure all top-level fields are present
+    for field in REQUIRED_FIELDS:
+        if field not in json_data:
+            json_data[field] = {}
 
-    safe_data = fill_missing(json_data)
+    # Step 2: Fill required nested structures
+    safe_data = fill_missing_fields(json_data.copy(), REQUIRED_STRUCTURE)
 
-    # ensure all top‑level fields exist
-    for key in REQUIRED_FIELDS:
-        if key not in safe_data:
-            safe_data[key] = "Not Available"
+    # Step 3: Replace all blank/missing values
+    safe_data = fill_not_available(safe_data)
 
-    # guarantee list‑type placeholders exist as lists of dicts
-    if isinstance(safe_data.get("omega_team"), str):
-        safe_data["omega_team"] = [{"name": "Not Available", "role": "Not Available"}]
-
-    if isinstance(safe_data.get("opportunity_win_plans"), str):
-        safe_data["opportunity_win_plans"] = [
-            {"opportunity": "Not Available", "description": "Not Available"}
-        ]
-
+    # Step 4: Inject into the template
     tpl.render(safe_data)
     tpl.save(output_path)
