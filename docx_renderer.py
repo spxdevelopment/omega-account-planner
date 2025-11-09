@@ -4,7 +4,6 @@ from docxtpl import DocxTemplate
 
 
 def get_default_schema():
-    """Default fallback structure for all Omega Account Plan fields."""
     return {
         "account_overview": {
             "account_name": "Not Available",
@@ -42,25 +41,55 @@ def get_default_schema():
             "white_space_with_signal": "Not Available",
             "white_space_without_signal": "Not Available"
         },
-        "customer_business_objectives": "Not Available",
-        "account_landscape": {
-            "areas_of_focus": [],
-            "revenue_projection": []
+        "customer_business_objectives": {
+            "primary_objectives": ["Not Available"],
+            "secondary_objectives": ["Not Available"]
         },
-        "account_relationships": [],
-        "account_strategy": [],
+        "account_landscape": {
+            "areas_of_focus": [{
+                "name": "Not Available",
+                "evidence": {
+                    "stated_objectives": "Not Available",
+                    "need_external_help": "Not Available",
+                    "relationships_exist": "Not Available"
+                },
+                "impact_fy26": "Not Available"
+            }],
+            "revenue_projection": [{
+                "name": "Not Available",
+                "category": "Not Available",
+                "area_of_focus": "Not Available",
+                "projected_close": "Not Available",
+                "est_tcv": "Not Available",
+                "fy26_revenue": "Not Available",
+                "sf_opp_id": "Not Available"
+            }]
+        },
+        "account_relationships": [{
+            "customer_name_title": "Not Available",
+            "area_of_focus": "Not Available",
+            "current_status": "Not Available",
+            "development_objective": "Not Available",
+            "actions": "Not Available",
+            "omega_point_person": "Not Available"
+        }],
+        "account_strategy": [{
+            "action_item": "Not Available",
+            "owner": "Not Available",
+            "due_date": "Not Available",
+            "completed_date": "Not Available"
+        }],
         "opportunity_win_plans": [{
             "opportunity_name": "Not Available",
-            "solution": "Not Available",
-            "value_proposition": "Not Available",
-            "status": "Not Available",
-            "timeline": "Not Available",
-            "decision_makers": [],
+            "sfdc_id": "Not Available",
+            "omega_sales_leader": "Not Available",
+            "alignment_score": "Not Available",
             "alignment_questions": {
                 "stated_objectives": "Not Available",
                 "need_external_help": "Not Available",
                 "relationships_exist": "Not Available"
             },
+            "alignment_summary": "Not Available",
             "svs8": {
                 "single_sales_objective_defined": "Not Available",
                 "coach_identified": "Not Available",
@@ -71,6 +100,7 @@ def get_default_schema():
                 "decision_process_understood": "Not Available",
                 "red_flags_present": "Not Available"
             },
+            "sso": "Not Available",
             "coach": {
                 "name": "Not Available",
                 "title_role": "Not Available",
@@ -83,6 +113,8 @@ def get_default_schema():
                 "omega_contact": "Not Available",
                 "notes": "Not Available"
             }],
+            "why_change_now_detail": "Not Available",
+            "why_omega_detail": "Not Available",
             "business_case": {
                 "solution": "Not Available",
                 "benefit": "Not Available"
@@ -112,61 +144,37 @@ def get_default_schema():
 
 
 def fill_missing_fields(data, default):
-    """
-    Recursively fills missing fields in `data` using `default` schema.
-    Preserves valid data and ensures list fields have at least one entry.
-    """
     if isinstance(default, dict):
         if not isinstance(data, dict):
             return default
-
         for key, val in default.items():
             if key not in data:
                 data[key] = val
             elif isinstance(val, dict) and isinstance(data[key], dict):
                 data[key] = fill_missing_fields(data[key], val)
-            elif isinstance(val, list) and isinstance(data[key], list):
-                # Ensure list has at least one valid object
-                if len(data[key]) == 0:
+            elif isinstance(val, list):
+                if not isinstance(data[key], list) or len(data[key]) == 0:
                     data[key] = val
                 else:
                     data[key] = [
-                        fill_missing_fields(item, val[0])
-                        if isinstance(item, dict) else item
+                        fill_missing_fields(item, val[0]) if isinstance(item, dict) else item
                         for item in data[key]
                     ]
-            elif isinstance(val, list) and (not isinstance(data[key], list)):
-                data[key] = val
-
     elif isinstance(default, list):
         if not isinstance(data, list) or len(data) == 0:
             return default
-        else:
-            return [fill_missing_fields(item, default[0]) for item in data]
-
+        return [fill_missing_fields(item, default[0]) for item in data]
     return data
 
 
 def render_template_to_docx(template_path, json_data, output_path):
-    """
-    Merges parsed account data into the locked DOCX template.
-    Ensures all schema fields are populated and avoids index errors.
-    """
     try:
         schema = get_default_schema()
-
-        # Merge schema with model data safely
         cleaned_data = fill_missing_fields(json_data, schema)
 
-        # Ensure opportunity_win_plans always has at least one item
         if not isinstance(cleaned_data.get("opportunity_win_plans"), list) or len(cleaned_data["opportunity_win_plans"]) == 0:
             cleaned_data["opportunity_win_plans"] = schema["opportunity_win_plans"]
 
-        # Debug log to verify what is being rendered (temporary)
-        with open("debug_render_input.json", "w", encoding="utf-8") as dbg:
-            json.dump(cleaned_data, dbg, indent=2)
-
-        # Render the Word template
         tpl = DocxTemplate(template_path)
         tpl.render(cleaned_data)
         tpl.save(output_path)
