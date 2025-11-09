@@ -1,50 +1,46 @@
-from docxtpl import DocxTemplate
+from docxtpl import DocxTemplate, template
+import re
 
-# Top-level fields that must always exist in the schema
-REQUIRED_FIELDS = [
-    "account_overview",
-    "omega_history",
-    "customer_health",
-    "fy26_path_to_plan_summary",
-    "customer_business_objectives",
-    "account_landscape",
-    "account_relationships",
-    "account_strategy",
-    "opportunity_win_plans"
-]
-
-# Default nested structures that must also exist
-REQUIRED_STRUCTURE = {
-    "account_overview": {
-        "omega_team": [{
-            "name": "Not Available",
-            "role_title": "Not Available",
-            "location": "Not Available"
-        }]
-    },
-    "opportunity_win_plans": [{
-        "opportunity": "Not Available",
-        "description": "Not Available"
-    }],
-    "account_relationships": {
-        "executive_sponsors": ["Not Available"],
-        "decision_makers": ["Not Available"],
-        "influencers": ["Not Available"]
-    }
-}
-
-def fill_missing_fields(data, structure):
+def extract_placeholders(template_path):
     """
-    Recursively inject required nested fields.
+    Scan the .docx template and extract all Jinja placeholders
+    like {{ field }}, {{ account_overview.name }}, etc.
     """
-    for key, val in structure.items():
-        if key not in data:
-            data[key] = val
-        elif isinstance(val, dict) and isinstance(data[key], dict):
-            fill_missing_fields(data[key], val)
-        elif isinstance(val, list) and not isinstance(data[key], list):
-            data[key] = val
-    return data
+    tpl = DocxTemplate(template_path)
+    placeholder_pattern = re.compile(r"\{\{\s*(.*?)\s*\}\}")
+    found = set()
+
+    for block, _ in tpl.get_undeclared_template_variables():
+        found.add(block)
+
+    # The older docxtpl versions may not expose get_undeclared_template_variables properly;
+    # fall back to regex if needed.
+    try:
+        doc_xml = "\n".join([p.text for p in tpl.doc.paragraphs if p.text])
+        for m in placeholder_pattern.findall(doc_xml):
+            found.add(m.split("|")[0].strip())  # ignore Jinja filters
+    except Exception:
+        pass
+
+    return list(found)
+
+def safe_insert(path, target_dict, value="Not Available"):
+    """
+    Create nested dict structure for a dotted path like 'account_overview.omega_team[0].name'
+    """
+    import re
+    parts = re.split(r"\.|\[|\]", path)
+    parts = [p for p in parts if p]
+    d = target_dict
+    for i, part in enumerate(parts):
+        last = i == len(parts) - 1
+        if last:
+            d[part] = value
+        else:
+            if part not in d or not isinstance(d[part], dict):
+                d[part] = {}
+            d = d[part]
+    return target_dict
 
 def fill_not_available(obj, fallback="Not Available"):
     """
@@ -61,17 +57,21 @@ def fill_not_available(obj, fallback="Not Available"):
 def render_template_to_docx(template_path, json_data, output_path):
     tpl = DocxTemplate(template_path)
 
-    # Step 1: Ensure all top-level fields are present
-    for field in REQUIRED_FIELDS:
-        if field not in json_data:
-            json_data[field] = {}
+    # 1. Extract all placeholders from template
+    placeholders = extract_placeholders(template_path)
 
-    # Step 2: Fill required nested structures
-    safe_data = fill_missing_fields(json_data.copy(), REQUIRED_STRUCTURE)
+    # 2. Build safe data dict covering all placeholders
+    safe_data = json_data.copy()
+    for ph in placeholders:
+        try:
+            safe_insert(ph, safe_data)
+        except Exception:
+            # silently skip any invalid Jinja expression
+            continue
 
-    # Step 3: Replace all blank/missing values
+    # 3. Fill blanks
     safe_data = fill_not_available(safe_data)
 
-    # Step 4: Inject into the template
+    # 4. Render and save
     tpl.render(safe_data)
     tpl.save(output_path)
