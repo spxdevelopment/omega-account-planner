@@ -47,13 +47,73 @@ def get_default_schema():
         },
         "account_relationships": [],
         "account_strategy": [],
-        "opportunity_win_plans": []
+        "opportunity_win_plans": [{
+            "opportunity_name": "Not Available",
+            "solution": "Not Available",
+            "value_proposition": "Not Available",
+            "status": "Not Available",
+            "timeline": "Not Available",
+            "decision_makers": [],
+            "alignment_questions": {
+                "stated_objectives": "Not Available",
+                "need_external_help": "Not Available",
+                "relationships_exist": "Not Available"
+            },
+            "svs8": {
+                "single_sales_objective_defined": "Not Available",
+                "coach_identified": "Not Available",
+                "insight_stories_selected": "Not Available",
+                "why_change_now": "Not Available",
+                "why_omega": "Not Available",
+                "business_case_developed": "Not Available",
+                "decision_process_understood": "Not Available",
+                "red_flags_present": "Not Available"
+            },
+            "coach": {
+                "name": "Not Available",
+                "title_role": "Not Available",
+                "influence": "Not Available",
+                "notes": "Not Available"
+            },
+            "insight_stories": [{
+                "story": "Not Available",
+                "referenceable": "Not Available",
+                "omega_contact": "Not Available",
+                "notes": "Not Available"
+            }],
+            "business_case": {
+                "solution": "Not Available",
+                "benefit": "Not Available"
+            },
+            "decision_process": {
+                "buyers": {
+                    "economic": "Not Available",
+                    "coach": "Not Available",
+                    "technical": "Not Available",
+                    "user": "Not Available"
+                },
+                "process": "Not Available",
+                "criteria": "Not Available"
+            },
+            "red_flags": [{
+                "risk": "Not Available",
+                "mitigation": "Not Available"
+            }],
+            "opportunity_action_plan": [{
+                "item": "Not Available",
+                "owner": "Not Available",
+                "due_date": "Not Available",
+                "completed_date": "Not Available"
+            }]
+        }]
     }
 
 def fill_missing_fields(data, default):
     if isinstance(default, dict):
+        if not isinstance(data, dict):
+            return default
         for key, val in default.items():
-            if key not in data:
+            if key not in data or not isinstance(data[key], type(val)):
                 data[key] = val
             else:
                 data[key] = fill_missing_fields(data[key], val)
@@ -61,20 +121,21 @@ def fill_missing_fields(data, default):
         if not isinstance(data, list) or len(data) == 0:
             return default
         else:
-            filled_list = []
-            for item in data:
-                filled_list.append(fill_missing_fields(item, default[0]))
-            return filled_list
+            return [fill_missing_fields(item, default[0]) for item in data]
     return data
 
 def render_template_to_docx(template_path, json_data, output_path):
-    # Load base structure
-    schema = get_default_schema()
+    try:
+        # Load base structure
+        schema = get_default_schema()
 
-    # Validate and complete schema
-    cleaned_data = fill_missing_fields(json_data, schema)
+        # Inject missing fields
+        cleaned_data = fill_missing_fields(json_data, schema)
 
-    # Load and render template
-    tpl = DocxTemplate(template_path)
-    tpl.render(cleaned_data)
-    tpl.save(output_path)
+        # Render
+        tpl = DocxTemplate(template_path)
+        tpl.render(cleaned_data)
+        tpl.save(output_path)
+
+    except Exception as e:
+        raise RuntimeError(f"Failed to render template: {e}")
