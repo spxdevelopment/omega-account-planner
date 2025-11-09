@@ -1,26 +1,46 @@
+import os
 import json
 import openai
 from utils import extract_text_from_file
-from openai import OpenAI
 
-client = OpenAI()  # uses OPENAI_API_KEY from env
+# Load API key
+openai.api_key = os.getenv("OPENAI_API_KEY")
 
-def parse_input_to_schema(file_path):
-    raw_text = extract_text_from_file(file_path)
+# Load the instructions (schema + rules)
+with open("instructions.txt", "r", encoding="utf-8") as f:
+    SYSTEM_INSTRUCTIONS = f.read()
 
-    with open("instructions.txt", "r") as f:
-        system_prompt = f.read()
+def parse_input_to_schema(input_path):
+    text = extract_text_from_file(input_path)
 
-    response = client.chat.completions.create(
-        model="gpt-4o",
-        messages=[
-            {"role": "system", "content": system_prompt},
-            {"role": "user", "content": raw_text}
-        ],
-        temperature=0.2
-    )
+    if not text or len(text.strip()) < 10:
+        raise ValueError("Input content is too short or empty.")
 
-    result = response.choices[0].message.content
-    parsed_json = json.loads(result)
-    account_name = parsed_json.get("account_overview", {}).get("account_name", "Account_Plan_Output")
+    messages = [
+        {"role": "system", "content": SYSTEM_INSTRUCTIONS},
+        {"role": "user", "content": text}
+    ]
+
+    try:
+        response = openai.chat.completions.create(
+            model="gpt-4o",
+            messages=messages,
+            temperature=0.2
+        )
+    except Exception as e:
+        raise RuntimeError(f"OpenAI API call failed: {str(e)}")
+
+    result = response.choices[0].message.content.strip()
+
+    if not result:
+        raise ValueError("OpenAI returned an empty response.")
+
+    try:
+        parsed_json = json.loads(result)
+    except json.JSONDecodeError as e:
+        raise ValueError(f"Failed to parse JSON from OpenAI: {str(e)}\n\nResponse was:\n{result}")
+
+    # Optional: Extract account name from schema
+    account_name = parsed_json.get("account_overview", {}).get("account_name", "")
+
     return parsed_json, account_name
