@@ -1,0 +1,152 @@
+{
+  "account_overview": {
+    "account_name": "",
+    "current_segment": "",
+    "two_year_potential_segment": "",
+    "account_owner": "",
+    "data_created": "",
+    "date_last_updated": "",
+    "omega_team": [
+      {
+        "name": "",
+        "role_title": "",
+        "location": ""
+      }
+    ]
+  },
+  "omega_history": {
+    "revenue_fy24": "",
+    "projects_fy24": "",
+    "business_impact_fy24": "",
+    "revenue_fy25": "",
+    "projects_fy25": "",
+    "business_impact_fy25": "",
+    "non_project_activities_fy25": ""
+  },
+  "customer_health": {
+    "status": "",
+    "nps_reference": "",
+    "red_flags": ""
+  },
+  "fy26_path_to_plan_summary": {
+    "existing_sold_ec": "",
+    "qualified_opportunities": "",
+    "total": "",
+    "fy26_goal": "",
+    "gap_to_goal": "",
+    "white_space_with_signal": "",
+    "white_space_without_signal": ""
+  },
+  "customer_business_objectives": "",
+  "account_landscape": {
+    "areas_of_focus": [
+      {
+        "name": "",
+        "evidence": {
+          "stated_objectives": "",
+          "need_external_help": "",
+          "relationships_exist": ""
+        },
+        "impact_fy26": ""
+      }
+    ],
+    "revenue_projection": [
+      {
+        "name": "",
+        "category": "",
+        "area_of_focus": "",
+        "projected_close": "",
+        "est_tcv": "",
+        "fy26_revenue": "",
+        "sf_opp_id": ""
+      }
+    ]
+  },
+  "account_relationships": [
+    {
+      "customer_name_title": "",
+      "area_of_focus": "",
+      "current_status": "",
+      "development_objective": "",
+      "actions": "",
+      "omega_point_person": ""
+    }
+  ],
+  "account_strategy": [
+    {
+      "action_item": "",
+      "owner": "",
+      "due_date": "",
+      "completed_date": ""
+    }
+  ],
+  "opportunity_win_plans": [
+    {
+      "opportunity_name": "",
+      "sfdc_id": "",
+      "omega_sales_leader": "",
+      "alignment_score": "",
+      "alignment_questions": {
+        "stated_objectives": "",
+        "need_external_help": "",
+        "relationships_exist": ""
+      },
+      "alignment_summary": "",
+      "svs8": {
+        "single_sales_objective_defined": "",
+        "coach_identified": "",
+        "insight_stories_selected": "",
+        "why_change_now": "",
+        "why_omega": "",
+        "business_case_developed": "",
+        "decision_process_understood": "",
+        "red_flags_present": ""
+      },
+      "sso": "",
+      "coach": {
+        "name": "",
+        "title_role": "",
+        "influence": "",
+        "notes": ""
+      },
+      "insight_stories": [
+        {
+          "story": "",
+          "referenceable": "",
+          "omega_contact": "",
+          "notes": ""
+        }
+      ],
+      "why_change_now_detail": "",
+      "why_omega_detail": "",
+      "business_case": {
+        "solution": "",
+        "benefit": ""
+      },
+      "decision_process": {
+        "buyers": {
+          "economic": "",
+          "coach": "",
+          "technical": "",
+          "user": ""
+        },
+        "process": "",
+        "criteria": ""
+      },
+      "red_flags": [
+        {
+          "risk": "",
+          "mitigation": ""
+        }
+      ],
+      "opportunity_action_plan": [
+        {
+          "item": "",
+          "owner": "",
+          "due_date": "",
+          "completed_date": ""
+        }
+      ]
+    }
+  ]
+}

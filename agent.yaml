@@ -1,0 +1,11 @@
+name: OmegaAccountPlanAgent
+entry_point: main.py
+description: >
+  This agent parses unstructured account briefs and fills in the official Omega Account Plan template (.docx) using Jinja injection and Omega's field schema.
+parameters:
+  - name: input_file
+    type: file
+    required: false
+  - name: input_text
+    type: string
+    required: false
