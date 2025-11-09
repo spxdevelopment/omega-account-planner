@@ -113,8 +113,13 @@ def fill_missing_fields(data, default):
         if not isinstance(data, dict):
             return default
         for key, val in default.items():
-            if key not in data or not isinstance(data[key], type(val)):
-                data[key] = val
+           if key not in data:
+    data[key] = val
+elif isinstance(val, dict) and isinstance(data[key], dict):
+    data[key] = fill_missing_fields(data[key], val)
+elif isinstance(val, list) and isinstance(data[key], list) and data[key] == []:
+    data[key] = val
+
             else:
                 data[key] = fill_missing_fields(data[key], val)
     elif isinstance(default, list):
@@ -139,3 +144,4 @@ def render_template_to_docx(template_path, json_data, output_path):
 
     except Exception as e:
         raise RuntimeError(f"Failed to render template: {e}")
+
