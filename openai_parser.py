@@ -46,12 +46,10 @@ def parse_input_to_schema(input_path):
     Extracts text from input file, sends it to OpenAI, and parses the response into a dict.
     Always returns (parsed_json, account_name).
     """
-
     text = extract_text_from_file(input_path)
     if not text or len(text.strip()) < 10:
         raise ValueError("Input content is empty or too short to process.")
 
-    # Load prompt instructions
     with open("instructions.txt", "r", encoding="utf-8") as f:
         base_instructions = f.read()
 
@@ -60,7 +58,7 @@ def parse_input_to_schema(input_path):
         + "\n\nIMPORTANT:\n"
         + "You must return ONLY a valid JSON object matching Omega_Account_Plan_Schema.json.\n"
         + "Do not include explanations, markdown, or comments.\n"
-        + "Your response must begin with '{' and end with '}'."
+        + "Your response must begin with '{' and end with '}'."    
     )
 
     response = client.chat.completions.create(
@@ -74,7 +72,6 @@ def parse_input_to_schema(input_path):
 
     raw_output = response.choices[0].message.content.strip()
 
-    # Extract JSON block from inside markdown (if any)
     start = raw_output.find("{")
     end = raw_output.rfind("}") + 1
     json_block = raw_output[start:end] if start != -1 and end != -1 else raw_output
@@ -87,16 +84,16 @@ def parse_input_to_schema(input_path):
             f"```json\n{json_block}\n```\n\nError: {e}"
         )
 
-    # Fix areas_of_focus evidence field if broken
-for area in parsed_json.get("account_landscape", {}).get("areas_of_focus", []):
-    if not isinstance(area.get("evidence"), dict):
-        area["evidence"] = {
-            "stated_objectives": "Not Available",
-            "need_external_help": "Not Available",
-            "relationships_exist": "Not Available"
-        }
+    # ✅ FIX: Ensure evidence is a dict
+    for area in parsed_json.get("account_landscape", {}).get("areas_of_focus", []):
+        if not isinstance(area.get("evidence"), dict):
+            area["evidence"] = {
+                "stated_objectives": "Not Available",
+                "need_external_help": "Not Available",
+                "relationships_exist": "Not Available"
+            }
 
-    # Enforce fallback schema safety
+    # Enforce full schema
     parsed_json = inject_fallbacks(parsed_json)
 
     account_name = parsed_json.get("account_overview", {}).get("account_name", "Account_Plan_Output")
