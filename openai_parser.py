@@ -93,6 +93,9 @@ def parse_input_to_schema(input_path):
         + "- NEVER skip fields, and NEVER use shallow phrases like 'Not Available' alone—explain what is missing, e.g., 'Buyer roles not confirmed yet'.\n"
         + "- Each section (e.g. svs8, alignment_summary) must provide deal context, progress blockers, and value realization potential.\n"
         + "- When multiple values are embedded in a paragraph, split them correctly across lists/objects.\n"
+        + "- Opportunity-related fields must include full context: pain, urgency, Omega’s approach, expected impact, and metrics.\n"
+        + "- You must reasining through th input and include historical performance and prior engagements in omega_history, even if brief.\n"
+
     )
 
     response = client.chat.completions.create(
