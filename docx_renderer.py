@@ -183,16 +183,23 @@ def render_template_to_docx(template_path, json_data, output_path):
         schema = get_default_schema()
         cleaned_data = fill_missing_fields(json_data, schema)
 
+        # ✅ Ensure opportunity_win_plans is a non-empty list
         if not isinstance(cleaned_data.get("opportunity_win_plans"), list) or len(cleaned_data["opportunity_win_plans"]) == 0:
             cleaned_data["opportunity_win_plans"] = schema["opportunity_win_plans"]
 
-        # ✅ Safe fix for malformed account_landscape and evidence
-        account_landscape = cleaned_data.get("account_landscape", {})
-        if not isinstance(account_landscape, dict):
-            account_landscape = {"areas_of_focus": []}
-            cleaned_data["account_landscape"] = account_landscape
+        # ✅ Validate 'account_landscape' is a dict
+        if not isinstance(cleaned_data.get("account_landscape"), dict):
+            cleaned_data["account_landscape"] = {
+                "areas_of_focus": [],
+                "revenue_projection": []
+            }
 
-        for area in account_landscape.get("areas_of_focus", []):
+        # ✅ Validate 'areas_of_focus' is a list
+        if not isinstance(cleaned_data["account_landscape"].get("areas_of_focus"), list):
+            cleaned_data["account_landscape"]["areas_of_focus"] = []
+
+        # ✅ Fix malformed evidence inside areas_of_focus
+        for area in cleaned_data["account_landscape"]["areas_of_focus"]:
             if not isinstance(area, dict):
                 continue
             if not isinstance(area.get("evidence"), dict):
@@ -202,14 +209,14 @@ def render_template_to_docx(template_path, json_data, output_path):
                     "relationships_exist": "Not Available"
                 }
 
-        # ✅ Render the Word template
+        # ✅ Validate 'revenue_projection' is a list
+        if not isinstance(cleaned_data["account_landscape"].get("revenue_projection"), list):
+            cleaned_data["account_landscape"]["revenue_projection"] = []
+
+        # ✅ Render the Word document
         tpl = DocxTemplate(template_path)
         tpl.render(cleaned_data)
         tpl.save(output_path)
 
     except Exception as e:
         raise RuntimeError(f"Failed to render template: {e}")
-
-
-
-
