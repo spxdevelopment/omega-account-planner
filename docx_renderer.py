@@ -147,13 +147,12 @@ def fill_missing_fields(data, default):
     if isinstance(default, dict):
         if not isinstance(data, dict):
             return default
-
         for key, val in default.items():
             if key not in data:
                 data[key] = val
             elif isinstance(val, dict):
                 if not isinstance(data[key], dict):
-                    data[key] = val  # Force replace with default dict
+                    data[key] = val
                 else:
                     data[key] = fill_missing_fields(data[key], val)
             elif isinstance(val, list):
@@ -163,9 +162,8 @@ def fill_missing_fields(data, default):
                     new_list = []
                     for item in data[key]:
                         if isinstance(val[0], dict):
-                            # Ensure every list item conforms to the expected structure
                             if not isinstance(item, dict):
-                                new_list.append(val[0])  # fallback
+                                new_list.append(val[0])
                             else:
                                 new_list.append(fill_missing_fields(item, val[0]))
                         else:
@@ -175,45 +173,36 @@ def fill_missing_fields(data, default):
         if not isinstance(data, list) or len(data) == 0:
             return default
         return [fill_missing_fields(item, default[0]) for item in data]
-
     return data
+
 
 def render_template_to_docx(template_path, json_data, output_path):
     try:
         schema = get_default_schema()
         cleaned_data = fill_missing_fields(json_data, schema)
 
-        # ✅ Ensure opportunity_win_plans is a non-empty list
+        # Patch malformed customer_business_objectives (string → dict)
+        if isinstance(cleaned_data.get("customer_business_objectives"), str):
+            cleaned_data["customer_business_objectives"] = {
+                "primary_objectives": ["Not Available"],
+                "secondary_objectives": ["Not Available"]
+            }
+
+        # Patch malformed areas_of_focus.evidence
+        if isinstance(cleaned_data.get("account_landscape"), dict):
+            for area in cleaned_data["account_landscape"].get("areas_of_focus", []):
+                if not isinstance(area.get("evidence"), dict):
+                    area["evidence"] = {
+                        "stated_objectives": "Not Available",
+                        "need_external_help": "Not Available",
+                        "relationships_exist": "Not Available"
+                    }
+
+        # Fallback opportunity_win_plans if empty or invalid
         if not isinstance(cleaned_data.get("opportunity_win_plans"), list) or len(cleaned_data["opportunity_win_plans"]) == 0:
             cleaned_data["opportunity_win_plans"] = schema["opportunity_win_plans"]
 
-        # ✅ Validate 'account_landscape' is a dict
-        if not isinstance(cleaned_data.get("account_landscape"), dict):
-            cleaned_data["account_landscape"] = {
-                "areas_of_focus": [],
-                "revenue_projection": []
-            }
-
-        # ✅ Validate 'areas_of_focus' is a list
-        if not isinstance(cleaned_data["account_landscape"].get("areas_of_focus"), list):
-            cleaned_data["account_landscape"]["areas_of_focus"] = []
-
-        # ✅ Fix malformed evidence inside areas_of_focus
-        for area in cleaned_data["account_landscape"]["areas_of_focus"]:
-            if not isinstance(area, dict):
-                continue
-            if not isinstance(area.get("evidence"), dict):
-                area["evidence"] = {
-                    "stated_objectives": "Not Available",
-                    "need_external_help": "Not Available",
-                    "relationships_exist": "Not Available"
-                }
-
-        # ✅ Validate 'revenue_projection' is a list
-        if not isinstance(cleaned_data["account_landscape"].get("revenue_projection"), list):
-            cleaned_data["account_landscape"]["revenue_projection"] = []
-
-        # ✅ Render the Word document
+        # Render final Word doc
         tpl = DocxTemplate(template_path)
         tpl.render(cleaned_data)
         tpl.save(output_path)
