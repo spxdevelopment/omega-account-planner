@@ -18,12 +18,9 @@ REQUIRED_TOP_KEYS = [
     "opportunity_win_plans"
 ]
 
-JUNK_STRINGS = {"omegaomega", "asdf", "test", "unknown", "n/a", "none", "lorem", "???", "not sure", "demo", "null", "test123"}
+JUNK_STRINGS = {"omegaomega", "asdf", "test", "unknown", "n/a", "none", "lorem", "???", "not sure"}
 
 
-# ----------------------------
-# CLEANUP FUNCTIONS
-# ----------------------------
 def clean_string(s):
     if not isinstance(s, str):
         return s
@@ -45,9 +42,6 @@ def walk_and_clean(obj):
     return obj
 
 
-# ----------------------------
-# DATA REPAIR / DEFAULTING
-# ----------------------------
 def inject_fallbacks(data):
     for key in REQUIRED_TOP_KEYS:
         if key not in data:
@@ -77,32 +71,6 @@ def inject_fallbacks(data):
     return data
 
 
-# ----------------------------
-# DIAGNOSTICS
-# ----------------------------
-def detail_check(data):
-    """
-    Optional: Warn if some strategic fields are too short or vague.
-    """
-    warnings = []
-
-    for opp in data.get("opportunity_win_plans", []):
-        name = opp.get("opportunity_name", "Unnamed")
-        if len(opp.get("alignment_summary", "")) < 50:
-            warnings.append(f"⚠️ alignment_summary too short for opportunity: {name}")
-        if len(opp.get("sso", "")) < 30:
-            warnings.append(f"⚠️ sso likely too vague for opportunity: {name}")
-        if len(opp.get("business_case", {}).get("solution", "")) < 40:
-            warnings.append(f"⚠️ business_case.solution weak or missing for: {name}")
-        if len(opp.get("coach", {}).get("notes", "")) < 20:
-            warnings.append(f"⚠️ coach.notes could benefit from more detail: {name}")
-
-    return warnings
-
-
-# ----------------------------
-# PARSER ENTRY POINT
-# ----------------------------
 def parse_input_to_schema(input_path):
     raw_text = extract_text_from_file(input_path)
     if not raw_text or len(raw_text.strip()) < 10:
@@ -111,36 +79,39 @@ def parse_input_to_schema(input_path):
     with open("instructions.txt", "r", encoding="utf-8") as f:
         instructions = f.read()
 
-    preview_text = raw_text[:2000]
-
     system_prompt = (
-        instructions
-        + "\n\nADDITIONAL MANDATES:\n"
-        + "- Never return repeated words like 'NotAvailableNotAvailable' or 'OmegaOmega'.\n"
-        + "- Split multi-action or multi-owner items into separate objects.\n"
-        + "- Avoid hallucinations or fake data. If unsure, use 'Not Available'.\n"
-        + "- Ensure all fields in schema are filled, even if some values are placeholders.\n"
-        + "- When extracting nested lists (e.g. opportunity_action_plan), split based on action boundaries.\n"
-        + "- Return real values and phrases from the input, not guesses.\n"
-        + "- Expand answers where contextual details are available. Do NOT truncate to short phrases.\n"
-        + "- When writing alignment_summary, coach notes, or opportunity details, include nuanced reasoning, financials, tools/tech, and decision factors.\n"
-        + "- For each opportunity, include a short narrative describing the customer pain, what Omega is proposing, and how success will be measured.\n"
-        + "- NEVER reduce business case, SSO, or insight stories to 2–3 words. Write 1–2 sentences using specific input phrasing.\n"
-        + "- Think like a deal strategist. Your answers should tell the story of the pursuit, not just list generic terms.\n"
-        + "- Chain of thought must be reflected in field mapping, especially for insight stories, red flags, etc.\n"
+        instructions +
+        "\n\nADDITIONAL MANDATES:\n"
+        "- Never return repeated junk like 'NotAvailableNotAvailable' or 'OmegaOmega'.\n"
+        "- Split multi-action or multi-owner items into separate objects.\n"
+        "- Avoid hallucinations or fake data. Use 'Not Available' if nothing relevant exists.\n"
+        "- Expand answers with full context. Never use 2–3 words when the source has more detail.\n"
+        "- NEVER reduce business case, SSO, or insight stories to 2–3 words. Write 1–2 sentences using specific input phrasing.\n"
+        "- Use actual metrics, names, quotes, or impacts when writing business_case, alignment_summary, coach notes. All these should come from the input details. The actions can come from the inputs but you can include a suggestions based on the input and specify that this is a suggestions of action\n"
+        "- Always include:\n"
+        "    • at least one coach or possible coach if it is not well defined\n"
+        "    • at least one insight_story if applicable\n"
+        "    • a full opportunity_action_plan with 2+ steps\n"
+        "    • full red_flags list with matched mitigations\n"
+        "- Treat the opportunity as a storyline: summarize what the client needs, what Omega offers, and how value is measured.\n"
+        "- Do not invent. Use only what is stated or logically implied from source.\n"
+        "- Lists (like actions, relationships, projections) should never be flattened into text blobs.\n"
+        "- Think like a deal strategist. Your answers should tell the story of the pursuit, not just list generic terms.\n"
+        "- Chain of thought must be reflected in field mapping, especially for insight stories, red flags, etc.\n"
+
     )
 
-    # Call OpenAI API
-   response = client.chat.completions.create(
+    response = client.chat.completions.create(
         model="gpt-4o",
         messages=[
             {"role": "system", "content": system_prompt},
-            {"role": "user", "content": "Extract a detailed JSON object from this input:\n\n" + preview_text}
+            {"role": "user", "content": raw_text}
         ],
         temperature=0.2,
     )
 
     raw_output = response.choices[0].message.content.strip()
+
     json_start = raw_output.find("{")
     json_end = raw_output.rfind("}") + 1
     json_block = raw_output[json_start:json_end]
@@ -148,14 +119,10 @@ def parse_input_to_schema(input_path):
     try:
         parsed_json = json.loads(json_block)
     except Exception as e:
-        raise ValueError(f"JSON parsing error:\n\n{json_block}\n\nError: {e}")
+        raise ValueError(f"JSON parsing error:\n{json_block}\n\nError: {e}")
 
     parsed_json = walk_and_clean(parsed_json)
     parsed_json = inject_fallbacks(parsed_json)
-
-    # Optional: print validation warnings
-    for warn in detail_check(parsed_json):
-        print(warn)
 
     account_name = parsed_json.get("account_overview", {}).get("account_name", "Account_Plan_Output")
 
