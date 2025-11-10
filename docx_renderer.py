@@ -1,123 +1,218 @@
 import os
 import json
-import re
-from openai import OpenAI
-from utils import extract_text_from_file
+from docxtpl import DocxTemplate
 
-client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
-REQUIRED_TOP_KEYS = [
-    "account_overview",
-    "omega_history",
-    "customer_health",
-    "fy26_path_to_plan_summary",
-    "customer_business_objectives",
-    "account_landscape",
-    "account_relationships",
-    "account_strategy",
-    "opportunity_win_plans"
-]
-
-JUNK_STRINGS = {
-    "omegaomega", "asdf", "test", "unknown", "n/a", "none", "null",
-    "lorem", "???", "not sure", "demo", "test123", "n.a.", "--"
-}
-
-def clean_string(s):
-    if not isinstance(s, str):
-        return s
-    s = s.strip()
-    if not s or s.lower() in JUNK_STRINGS:
-        return "Not Available"
-    s = re.sub(r"(Not Available)+", "Not Available", s, flags=re.I)
-    s = re.sub(r"(Omega)+", "Omega", s)
-    return s
-
-def walk_and_clean(obj):
-    if isinstance(obj, dict):
-        return {k: walk_and_clean(v) for k, v in obj.items()}
-    elif isinstance(obj, list):
-        return [walk_and_clean(i) for i in obj]
-    elif isinstance(obj, str):
-        return clean_string(obj)
-    return obj
-
-def inject_fallbacks(data):
-    for key in REQUIRED_TOP_KEYS:
-        if key not in data:
-            data[key] = [] if key == "opportunity_win_plans" else {}
-
-    if "omega_team" not in data.get("account_overview", {}):
-        data["account_overview"]["omega_team"] = [{
-            "name": "Not Available",
-            "role_title": "Not Available",
-            "location": "Not Available"
-        }]
-
-    for area in data.get("account_landscape", {}).get("areas_of_focus", []):
-        if not isinstance(area.get("evidence"), dict):
-            area["evidence"] = {
+def get_default_schema():
+    return {
+        "account_overview": {
+            "account_name": "Not Available",
+            "current_segment": "Not Available",
+            "two_year_potential_segment": "Not Available",
+            "account_owner": "Not Available",
+            "data_created": "Not Available",
+            "date_last_updated": "Not Available",
+            "omega_team": [{
+                "name": "Not Available",
+                "role_title": "Not Available",
+                "location": "Not Available"
+            }]
+        },
+        "omega_history": {
+            "revenue_fy24": "Not Available",
+            "projects_fy24": "Not Available",
+            "business_impact_fy24": "Not Available",
+            "revenue_fy25": "Not Available",
+            "projects_fy25": "Not Available",
+            "business_impact_fy25": "Not Available",
+            "non_project_activities_fy25": "Not Available"
+        },
+        "customer_health": {
+            "status": "Not Available",
+            "nps_reference": "Not Available",
+            "red_flags": "Not Available"
+        },
+        "fy26_path_to_plan_summary": {
+            "existing_sold_ec": "Not Available",
+            "qualified_opportunities": "Not Available",
+            "total": "Not Available",
+            "fy26_goal": "Not Available",
+            "gap_to_goal": "Not Available",
+            "white_space_with_signal": "Not Available",
+            "white_space_without_signal": "Not Available"
+        },
+        "customer_business_objectives": {
+            "primary_objectives": ["Not Available"],
+            "secondary_objectives": ["Not Available"]
+        },
+        "account_landscape": {
+            "areas_of_focus": [{
+                "name": "Not Available",
+                "evidence": {
+                    "stated_objectives": "Not Available",
+                    "need_external_help": "Not Available",
+                    "relationships_exist": "Not Available"
+                },
+                "impact_fy26": "Not Available"
+            }],
+            "revenue_projection": [{
+                "name": "Not Available",
+                "category": "Not Available",
+                "area_of_focus": "Not Available",
+                "projected_close": "Not Available",
+                "est_tcv": "Not Available",
+                "fy26_revenue": "Not Available",
+                "sf_opp_id": "Not Available"
+            }]
+        },
+        "account_relationships": [{
+            "customer_name_title": "Not Available",
+            "area_of_focus": "Not Available",
+            "current_status": "Not Available",
+            "development_objective": "Not Available",
+            "actions": "Not Available",
+            "omega_point_person": "Not Available"
+        }],
+        "account_strategy": [{
+            "action_item": "Not Available",
+            "owner": "Not Available",
+            "due_date": "Not Available",
+            "completed_date": "Not Available"
+        }],
+        "opportunity_win_plans": [{
+            "opportunity_name": "Not Available",
+            "sfdc_id": "Not Available",
+            "omega_sales_leader": "Not Available",
+            "alignment_score": "Not Available",
+            "alignment_questions": {
                 "stated_objectives": "Not Available",
                 "need_external_help": "Not Available",
                 "relationships_exist": "Not Available"
-            }
+            },
+            "alignment_summary": "Not Available",
+            "svs8": {
+                "single_sales_objective_defined": "Not Available",
+                "coach_identified": "Not Available",
+                "insight_stories_selected": "Not Available",
+                "why_change_now": "Not Available",
+                "why_omega": "Not Available",
+                "business_case_developed": "Not Available",
+                "decision_process_understood": "Not Available",
+                "red_flags_present": "Not Available"
+            },
+            "sso": "Not Available",
+            "coach": {
+                "name": "Not Available",
+                "title_role": "Not Available",
+                "influence": "Not Available",
+                "notes": "Not Available"
+            },
+            "insight_stories": [{
+                "story": "Not Available",
+                "referenceable": "Not Available",
+                "omega_contact": "Not Available",
+                "notes": "Not Available"
+            }],
+            "why_change_now_detail": "Not Available",
+            "why_omega_detail": "Not Available",
+            "business_case": {
+                "solution": "Not Available",
+                "benefit": "Not Available"
+            },
+            "decision_process": {
+                "buyers": {
+                    "economic": "Not Available",
+                    "coach": "Not Available",
+                    "technical": "Not Available",
+                    "user": "Not Available"
+                },
+                "process": "Not Available",
+                "criteria": "Not Available"
+            },
+            "red_flags": [{
+                "risk": "Not Available",
+                "mitigation": "Not Available"
+            }],
+            "opportunity_action_plan": [{
+                "item": "Not Available",
+                "owner": "Not Available",
+                "due_date": "Not Available",
+                "completed_date": "Not Available"
+            }]
+        }]
+    }
 
-    if isinstance(data.get("customer_business_objectives"), str):
-        data["customer_business_objectives"] = {
-            "primary_objectives": ["Not Available"],
-            "secondary_objectives": ["Not Available"]
-        }
 
+def fill_missing_fields(data, default):
+    if isinstance(default, dict):
+        if not isinstance(data, dict):
+            return default
+        for key, val in default.items():
+            if key not in data:
+                data[key] = val
+            elif isinstance(val, dict):
+                if not isinstance(data[key], dict):
+                    data[key] = val
+                else:
+                    data[key] = fill_missing_fields(data[key], val)
+            elif isinstance(val, list):
+                if not isinstance(data[key], list) or len(data[key]) == 0:
+                    data[key] = val
+                else:
+                    new_list = []
+                    for item in data[key]:
+                        if isinstance(val[0], dict):
+                            if not isinstance(item, dict):
+                                new_list.append(val[0])
+                            else:
+                                new_list.append(fill_missing_fields(item, val[0]))
+                        else:
+                            new_list.append(item)
+                    data[key] = new_list
+    elif isinstance(default, list):
+        if not isinstance(data, list) or len(data) == 0:
+            return default
+        return [fill_missing_fields(item, default[0]) for item in data]
     return data
 
 
-def parse_input_to_schema(input_path):
-    raw_text = extract_text_from_file(input_path)
-    if not raw_text or len(raw_text.strip()) < 10:
-        raise ValueError("Input content is empty or too short.")
-
-    with open("instructions.txt", "r", encoding="utf-8") as f:
-        instructions = f.read()
-
-    system_prompt = (
-        instructions
-        + "\n\n🧠 ENHANCED REQUIREMENTS:\n"
-        + "- Expand answers into full business-ready sentences when the source contains supporting context.\n"
-        + "- Do NOT condense insights to one-liners like 'Reduce AR'. YOU MUST Provide reasoning, value, and metrics.\n"
-        + "- Be narrative-oriented: explain the strategic importance of fields like opportunity_alignment, red_flags, and sso.\n"
-        + "- If data is missing but logic allows, infer structure (e.g. explain missing decision process by noting it's TBD).\n"
-        + "- Leverage all relevant business metrics, pain points, financials, or buyer motivations in your output.\n"
-        + "- Use bullet points only when the field requires lists. Otherwise, prefer coherent paragraph form.\n"
-        + "- Think like a deal strategist. Your answers should tell the story of the pursuit, not just list generic terms.\n"
-        + "- Expand answers where contextual details AS MUCH AS POSSIBLE WHEN are available. Do NOT truncate to short phrases.\n"
-        + "- NEVER skip fields, and NEVER use shallow phrases like 'Not Available' alone—explain what is missing, e.g., 'Buyer roles not confirmed yet'.\n"
-        + "- Each section (e.g. svs8, alignment_summary) must provide deal context, progress blockers, and value realization potential.\n"
-        + "- When multiple values are embedded in a paragraph, split them correctly across lists/objects.\n"
-    )
-
-    response = client.chat.completions.create(
-        model="gpt-4o",
-        messages=[
-            {"role": "system", "content": system_prompt},
-            {"role": "user", "content": raw_text}
-        ],
-        temperature=0.2,
-    )
-
-    raw_output = response.choices[0].message.content.strip()
-
-    json_start = raw_output.find("{")
-    json_end = raw_output.rfind("}") + 1
-    json_block = raw_output[json_start:json_end]
-
+def render_template_to_docx(template_path, json_data, output_path):
     try:
-        parsed_json = json.loads(json_block)
+        schema = get_default_schema()
+        cleaned_data = fill_missing_fields(json_data, schema)
+
+        # Fix broken customer_business_objectives
+        if isinstance(cleaned_data.get("customer_business_objectives"), str):
+            cleaned_data["customer_business_objectives"] = {
+                "primary_objectives": ["Not Available"],
+                "secondary_objectives": ["Not Available"]
+            }
+
+        # Fix malformed areas_of_focus structure
+        if not isinstance(cleaned_data.get("account_landscape"), dict):
+            cleaned_data["account_landscape"] = schema["account_landscape"]
+
+        if not isinstance(cleaned_data["account_landscape"].get("areas_of_focus"), list):
+            cleaned_data["account_landscape"]["areas_of_focus"] = []
+
+        for idx, area in enumerate(cleaned_data["account_landscape"]["areas_of_focus"]):
+            if not isinstance(area, dict):
+                cleaned_data["account_landscape"]["areas_of_focus"][idx] = schema["account_landscape"]["areas_of_focus"][0]
+            elif not isinstance(area.get("evidence"), dict):
+                area["evidence"] = {
+                    "stated_objectives": "Not Available",
+                    "need_external_help": "Not Available",
+                    "relationships_exist": "Not Available"
+                }
+
+        # Ensure opportunity_win_plans is always valid
+        if not isinstance(cleaned_data.get("opportunity_win_plans"), list) or len(cleaned_data["opportunity_win_plans"]) == 0:
+            cleaned_data["opportunity_win_plans"] = schema["opportunity_win_plans"]
+
+        # Render .docx
+        tpl = DocxTemplate(template_path)
+        tpl.render(cleaned_data)
+        tpl.save(output_path)
+
     except Exception as e:
-        raise ValueError(f"JSON parsing error:\n{json_block}\n\nError: {e}")
-
-    parsed_json = walk_and_clean(parsed_json)
-    parsed_json = inject_fallbacks(parsed_json)
-
-    account_name = parsed_json.get("account_overview", {}).get("account_name", "Account_Plan_Output")
-
-    return parsed_json, account_name
+        raise RuntimeError(f"Failed to render template: {e}")
