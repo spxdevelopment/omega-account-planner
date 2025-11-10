@@ -42,32 +42,41 @@ def walk_and_clean(obj):
         return clean_string(obj)
     return obj
 
-def inject_fallbacks(data):
-    for key in REQUIRED_TOP_KEYS:
-        if key not in data:
-            data[key] = [] if key == "opportunity_win_plans" else {}
+def explain_missing_fields(data):
+    """
+    Replace 'Not Available' with descriptive reasons for each required field if data is missing.
+    Adds business-readable clarity to placeholder content.
+    """
+    if isinstance(data.get("customer_business_objectives"), str):
+        data["customer_business_objectives"] = {
+            "primary_objectives": ["Client’s primary business objectives were not clearly outlined in the input material."],
+            "secondary_objectives": ["Supporting objectives were not identified from the provided content."]
+        }
 
     if "omega_team" not in data.get("account_overview", {}):
         data["account_overview"]["omega_team"] = [{
-            "name": "Not Available",
-            "role_title": "Not Available",
-            "location": "Not Available"
+            "name": "Team members supporting the account were not specified.",
+            "role_title": "Not listed",
+            "location": "Not listed"
         }]
 
     for area in data.get("account_landscape", {}).get("areas_of_focus", []):
         if not isinstance(area.get("evidence"), dict):
             area["evidence"] = {
-                "stated_objectives": "Not Available",
-                "need_external_help": "Not Available",
-                "relationships_exist": "Not Available"
+                "stated_objectives": "Client goals for this focus area were not described.",
+                "need_external_help": "No external help was mentioned for this area.",
+                "relationships_exist": "No internal or external relationships were mentioned for this pursuit."
             }
 
-    if isinstance(data.get("customer_business_objectives"), str):
-        data["customer_business_objectives"] = {
-            "primary_objectives": ["Not Available"],
-            "secondary_objectives": ["Not Available"]
-        }
+    return data
 
+def inject_fallbacks(data):
+    for key in REQUIRED_TOP_KEYS:
+        if key not in data:
+            data[key] = [] if key == "opportunity_win_plans" else {}
+
+    # Maintain nested integrity
+    explain_missing_fields(data)
     return data
 
 
@@ -89,13 +98,11 @@ def parse_input_to_schema(input_path):
         + "- Leverage all relevant business metrics, pain points, financials, or buyer motivations in your output.\n"
         + "- Use bullet points only when the field requires lists. Otherwise, prefer coherent paragraph form.\n"
         + "- Think like a deal strategist. Your answers should tell the story of the pursuit, not just list generic terms.\n"
-        + "- Expand answers where contextual details AS MUCH AS POSSIBLE WHEN are available. Do NOT truncate to short phrases.\n"
         + "- NEVER skip fields, and NEVER use shallow phrases like 'Not Available' alone—explain what is missing, e.g., 'Buyer roles not confirmed yet'.\n"
         + "- Each section (e.g. svs8, alignment_summary) must provide deal context, progress blockers, and value realization potential.\n"
         + "- When multiple values are embedded in a paragraph, split them correctly across lists/objects.\n"
         + "- Opportunity-related fields must include full context: pain, urgency, Omega’s approach, expected impact, and metrics.\n"
-        + "- You must reasining through th input and include historical performance and prior engagements in omega_history, even if brief.\n"
-
+        + "- You must reasoning through the input and include historical performance and prior engagements in omega_history, even if brief.\n"
     )
 
     response = client.chat.completions.create(
@@ -124,4 +131,3 @@ def parse_input_to_schema(input_path):
     account_name = parsed_json.get("account_overview", {}).get("account_name", "Account_Plan_Output")
 
     return parsed_json, account_name
-
