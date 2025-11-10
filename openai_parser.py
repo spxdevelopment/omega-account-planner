@@ -18,8 +18,10 @@ REQUIRED_TOP_KEYS = [
     "opportunity_win_plans"
 ]
 
-JUNK_STRINGS = {"omegaomega", "asdf", "test", "unknown", "n/a", "none", "lorem", "???", "not sure"}
-
+JUNK_STRINGS = {
+    "omegaomega", "asdf", "test", "unknown", "n/a", "none", "null",
+    "lorem", "???", "not sure", "demo", "test123", "n.a.", "--"
+}
 
 def clean_string(s):
     if not isinstance(s, str):
@@ -31,7 +33,6 @@ def clean_string(s):
     s = re.sub(r"(Omega)+", "Omega", s)
     return s
 
-
 def walk_and_clean(obj):
     if isinstance(obj, dict):
         return {k: walk_and_clean(v) for k, v in obj.items()}
@@ -40,7 +41,6 @@ def walk_and_clean(obj):
     elif isinstance(obj, str):
         return clean_string(obj)
     return obj
-
 
 def inject_fallbacks(data):
     for key in REQUIRED_TOP_KEYS:
@@ -80,25 +80,19 @@ def parse_input_to_schema(input_path):
         instructions = f.read()
 
     system_prompt = (
-        instructions +
-        "\n\nADDITIONAL MANDATES:\n"
-        "- Never return repeated junk like 'NotAvailableNotAvailable' or 'OmegaOmega'.\n"
-        "- Split multi-action or multi-owner items into separate objects.\n"
-        "- Avoid hallucinations or fake data. Use 'Not Available' if nothing relevant exists.\n"
-        "- Expand answers with full context. Never use 2–3 words when the source has more detail.\n"
-        "- NEVER reduce business case, SSO, or insight stories to 2–3 words. Write 1–2 sentences using specific input phrasing.\n"
-        "- Use actual metrics, names, quotes, or impacts when writing business_case, alignment_summary, coach notes. All these should come from the input details. The actions can come from the inputs but you can include a suggestions based on the input and specify that this is a suggestions of action\n"
-        "- Always include:\n"
-        "    • at least one coach or possible coach if it is not well defined\n"
-        "    • at least one insight_story if applicable\n"
-        "    • a full opportunity_action_plan with 2+ steps\n"
-        "    • full red_flags list with matched mitigations\n"
-        "- Treat the opportunity as a storyline: summarize what the client needs, what Omega offers, and how value is measured.\n"
-        "- Do not invent. Use only what is stated or logically implied from source.\n"
-        "- Lists (like actions, relationships, projections) should never be flattened into text blobs.\n"
-        "- Think like a deal strategist. Your answers should tell the story of the pursuit, not just list generic terms.\n"
-        "- Chain of thought must be reflected in field mapping, especially for insight stories, red flags, etc.\n"
-
+        instructions
+        + "\n\n🧠 ENHANCED REQUIREMENTS:\n"
+        + "- Expand answers into full business-ready sentences when the source contains supporting context.\n"
+        + "- Do NOT condense insights to one-liners like 'Reduce AR'. YOU MUST Provide reasoning, value, and metrics.\n"
+        + "- Be narrative-oriented: explain the strategic importance of fields like opportunity_alignment, red_flags, and sso.\n"
+        + "- If data is missing but logic allows, infer structure (e.g. explain missing decision process by noting it's TBD).\n"
+        + "- Leverage all relevant business metrics, pain points, financials, or buyer motivations in your output.\n"
+        + "- Use bullet points only when the field requires lists. Otherwise, prefer coherent paragraph form.\n"
+        + "- Think like a deal strategist. Your answers should tell the story of the pursuit, not just list generic terms.\n"
+        + "- Expand answers where contextual details AS MUCH AS POSSIBLE WHEN are available. Do NOT truncate to short phrases.\n"
+        + "- NEVER skip fields, and NEVER use shallow phrases like 'Not Available' alone—explain what is missing, e.g., 'Buyer roles not confirmed yet'.\n"
+        + "- Each section (e.g. svs8, alignment_summary) must provide deal context, progress blockers, and value realization potential.\n"
+        + "- When multiple values are embedded in a paragraph, split them correctly across lists/objects.\n"
     )
 
     response = client.chat.completions.create(
@@ -127,3 +121,4 @@ def parse_input_to_schema(input_path):
     account_name = parsed_json.get("account_overview", {}).get("account_name", "Account_Plan_Output")
 
     return parsed_json, account_name
+
