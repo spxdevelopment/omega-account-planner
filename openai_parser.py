@@ -19,14 +19,15 @@ REQUIRED_TOP_KEYS = [
 
 
 def inject_fallbacks(data):
-    """Ensure required top-level schema keys are present and filled in."""
-    if not isinstance(data, dict):
-        raise ValueError("Expected parsed JSON to be a dictionary.")
-
+    """
+    Ensure all required top-level keys and nested expected lists exist.
+    Only adds 'Not Available' when data is truly absent or malformed.
+    """
     for key in REQUIRED_TOP_KEYS:
-        if key not in data or not isinstance(data[key], (dict, list)):
+        if key not in data:
             data[key] = [] if key == "opportunity_win_plans" else {}
 
+    # Ensure omega_team is structured correctly
     if "omega_team" not in data.get("account_overview", {}):
         data["account_overview"]["omega_team"] = [{
             "name": "Not Available",
@@ -34,69 +35,75 @@ def inject_fallbacks(data):
             "location": "Not Available"
         }]
 
-    return data
+    # Validate nested evidence structure
+    areas = data.get("account_landscape", {}).get("areas_of_focus", [])
+    if isinstance(areas, list):
+        for area in areas:
+            if not isinstance(area.get("evidence"), dict):
+                area["evidence"] = {
+                    "stated_objectives": "Not Available",
+                    "need_external_help": "Not Available",
+                    "relationships_exist": "Not Available"
+                }
 
-
-def fix_common_malformed_blocks(parsed_json):
-    """Fix frequent formatting issues in certain nested fields."""
-
-    # Fix malformed evidence
-    areas = parsed_json.get("account_landscape", {}).get("areas_of_focus", [])
-    for area in areas:
-        if not isinstance(area, dict):
-            continue
-        if not isinstance(area.get("evidence"), dict):
-            area["evidence"] = {
-                "stated_objectives": "Not Available",
-                "need_external_help": "Not Available",
-                "relationships_exist": "Not Available"
-            }
-
-    # Fix customer_business_objectives if it's a string
-    if isinstance(parsed_json.get("customer_business_objectives"), str):
-        parsed_json["customer_business_objectives"] = {
+    # Ensure customer_business_objectives is a dict
+    if isinstance(data.get("customer_business_objectives"), str):
+        data["customer_business_objectives"] = {
             "primary_objectives": ["Not Available"],
             "secondary_objectives": ["Not Available"]
         }
 
-    return parsed_json
+    return data
 
 
-def load_system_prompt():
-    """Loads the combined instructions and field guidance files."""
+def sanitize_model_output_fields(parsed_json):
+    """
+    Detect hallucinations or non-business filler content in string fields.
+    Replace junk entries like 'OMEGAOMEGA', 'asdf', or obvious errors.
+    """
+    def clean_string(value):
+        if not isinstance(value, str):
+            return value
+        junk = ["OMEGAOMEGA", "asdf", "lorem", "unknown", "???", "n/a", "test"]
+        return value.strip() if value.strip().lower() not in junk else "Not Available"
 
-    with open("instructions.txt", "r", encoding="utf-8") as f:
-        instructions = f.read()
+    def walk(obj):
+        if isinstance(obj, dict):
+            return {k: walk(v) for k, v in obj.items()}
+        elif isinstance(obj, list):
+            return [walk(i) for i in obj]
+        elif isinstance(obj, str):
+            return clean_string(obj)
+        else:
+            return obj
 
-    guidance_path = "field_level_guidance.txt"
-    if os.path.exists(guidance_path):
-        with open(guidance_path, "r", encoding="utf-8") as f:
-            guidance = f.read()
-    else:
-        guidance = ""
-
-    system_prompt = (
-        instructions.strip()
-        + "\n\n"
-        + guidance.strip()
-        + "\n\nIMPORTANT:\n"
-        + "You must return ONLY a valid JSON object matching Omega_Account_Plan_Schema.json.\n"
-        + "Do not include explanations, markdown, or comments.\n"
-        + "Your response must begin with '{' and end with '}'."
-    )
-    return system_prompt
+    return walk(parsed_json)
 
 
 def parse_input_to_schema(input_path):
     """
-    Extracts text from input file, sends it to OpenAI, and parses the response into a dict.
-    Returns: (parsed_json, account_name)
+    Extracts input text, sends to OpenAI for structured field mapping,
+    sanitizes output, and returns cleaned schema-aligned JSON.
     """
     text = extract_text_from_file(input_path)
     if not text or len(text.strip()) < 10:
         raise ValueError("Input content is empty or too short to process.")
 
-    system_prompt = load_system_prompt()
+    with open("instructions.txt", "r", encoding="utf-8") as f:
+        base_instructions = f.read()
+
+    system_prompt = (
+        base_instructions
+        + "\n\nEXTRACTIONS MUST:\n"
+        + "• Use real business values from the input\n"
+        + "• Include field-by-field details based on context\n"
+        + "• Avoid filler terms like 'omegaomega', 'asdf', or 'n/a'\n"
+        + "• when writing the output use spaces between the words and correctly do the chain of thought and reasoning to write the output to each field\n"
+        + "• If partial data is available (e.g. only the coach name), still include the full nested field\n"
+        + "\nREMEMBER:\n"
+        +  "•Avoid repeat terms in the same field like Not AvailableNot AvailableNot AvailableNot Available or even like OmegaOmegaOmegaOmega \n"
+        + "You are not summarizing. You are converting source info into a JSON template structure."
+    )
 
     response = client.chat.completions.create(
         model="gpt-4o",
@@ -109,7 +116,6 @@ def parse_input_to_schema(input_path):
 
     raw_output = response.choices[0].message.content.strip()
 
-    # Extract just the JSON portion
     start = raw_output.find("{")
     end = raw_output.rfind("}") + 1
     json_block = raw_output[start:end] if start != -1 and end != -1 else raw_output
@@ -122,11 +128,12 @@ def parse_input_to_schema(input_path):
             f"```json\n{json_block}\n```\n\nError: {e}"
         )
 
-    # Apply structure patches
-    parsed_json = fix_common_malformed_blocks(parsed_json)
+    # Cleanup any malformed or junked fields
+    parsed_json = sanitize_model_output_fields(parsed_json)
+
+    # Inject missing schema keys
     parsed_json = inject_fallbacks(parsed_json)
 
-    # Extract account name
+    # Extract account name for file naming
     account_name = parsed_json.get("account_overview", {}).get("account_name", "Account_Plan_Output")
-
     return parsed_json, account_name
