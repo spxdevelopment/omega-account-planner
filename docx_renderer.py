@@ -181,28 +181,35 @@ def render_template_to_docx(template_path, json_data, output_path):
         schema = get_default_schema()
         cleaned_data = fill_missing_fields(json_data, schema)
 
-        # Patch malformed customer_business_objectives (string → dict)
+        # Fix broken customer_business_objectives
         if isinstance(cleaned_data.get("customer_business_objectives"), str):
             cleaned_data["customer_business_objectives"] = {
                 "primary_objectives": ["Not Available"],
                 "secondary_objectives": ["Not Available"]
             }
 
-        # Patch malformed areas_of_focus.evidence
-        if isinstance(cleaned_data.get("account_landscape"), dict):
-            for area in cleaned_data["account_landscape"].get("areas_of_focus", []):
-                if not isinstance(area.get("evidence"), dict):
-                    area["evidence"] = {
-                        "stated_objectives": "Not Available",
-                        "need_external_help": "Not Available",
-                        "relationships_exist": "Not Available"
-                    }
+        # Fix malformed areas_of_focus structure
+        if not isinstance(cleaned_data.get("account_landscape"), dict):
+            cleaned_data["account_landscape"] = schema["account_landscape"]
 
-        # Fallback opportunity_win_plans if empty or invalid
+        if not isinstance(cleaned_data["account_landscape"].get("areas_of_focus"), list):
+            cleaned_data["account_landscape"]["areas_of_focus"] = []
+
+        for idx, area in enumerate(cleaned_data["account_landscape"]["areas_of_focus"]):
+            if not isinstance(area, dict):
+                cleaned_data["account_landscape"]["areas_of_focus"][idx] = schema["account_landscape"]["areas_of_focus"][0]
+            elif not isinstance(area.get("evidence"), dict):
+                area["evidence"] = {
+                    "stated_objectives": "Not Available",
+                    "need_external_help": "Not Available",
+                    "relationships_exist": "Not Available"
+                }
+
+        # Ensure opportunity_win_plans is always valid
         if not isinstance(cleaned_data.get("opportunity_win_plans"), list) or len(cleaned_data["opportunity_win_plans"]) == 0:
             cleaned_data["opportunity_win_plans"] = schema["opportunity_win_plans"]
 
-        # Render final Word doc
+        # Render .docx
         tpl = DocxTemplate(template_path)
         tpl.render(cleaned_data)
         tpl.save(output_path)
