@@ -5,7 +5,6 @@ from utils import extract_text_from_file
 
 client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
-# Known top-level required keys in schema
 REQUIRED_TOP_KEYS = [
     "account_overview",
     "omega_history",
@@ -25,11 +24,7 @@ def inject_fallbacks(data):
 
     for key in REQUIRED_TOP_KEYS:
         if key not in data or not isinstance(data[key], (dict, list)):
-            # Assume dict default, unless key is specifically a list (like opportunity_win_plans)
-            if key == "opportunity_win_plans":
-                data[key] = []
-            else:
-                data[key] = {}
+            data[key] = [] if key == "opportunity_win_plans" else {}
 
     # Nested: Ensure omega_team exists inside account_overview
     if "omega_team" not in data.get("account_overview", {}):
@@ -40,6 +35,7 @@ def inject_fallbacks(data):
         }]
 
     return data
+
 
 def parse_input_to_schema(input_path):
     """
@@ -58,7 +54,7 @@ def parse_input_to_schema(input_path):
         + "\n\nIMPORTANT:\n"
         + "You must return ONLY a valid JSON object matching Omega_Account_Plan_Schema.json.\n"
         + "Do not include explanations, markdown, or comments.\n"
-        + "Your response must begin with '{' and end with '}'."    
+        + "Your response must begin with '{' and end with '}'."
     )
 
     response = client.chat.completions.create(
@@ -72,6 +68,7 @@ def parse_input_to_schema(input_path):
 
     raw_output = response.choices[0].message.content.strip()
 
+    # Extract only the JSON portion from the output
     start = raw_output.find("{")
     end = raw_output.rfind("}") + 1
     json_block = raw_output[start:end] if start != -1 and end != -1 else raw_output
@@ -84,16 +81,28 @@ def parse_input_to_schema(input_path):
             f"```json\n{json_block}\n```\n\nError: {e}"
         )
 
-    # ✅ FIX: Ensure evidence is a dict
-    for area in parsed_json.get("account_landscape", {}).get("areas_of_focus", []):
-        if not isinstance(area.get("evidence"), dict):
-            area["evidence"] = {
-                "stated_objectives": "Not Available",
-                "need_external_help": "Not Available",
-                "relationships_exist": "Not Available"
-            }
+    # 🛡 FIX MALFORMED evidence blocks
+    if "account_landscape" in parsed_json and isinstance(parsed_json["account_landscape"], dict):
+        areas = parsed_json["account_landscape"].get("areas_of_focus", [])
+        if isinstance(areas, list):
+            for area in areas:
+                if not isinstance(area, dict):
+                    continue
+                if not isinstance(area.get("evidence"), dict):
+                    area["evidence"] = {
+                        "stated_objectives": "Not Available",
+                        "need_external_help": "Not Available",
+                        "relationships_exist": "Not Available"
+                    }
 
-    # Enforce full schema
+    # 🛡 FIX malformed customer_business_objectives
+    if isinstance(parsed_json.get("customer_business_objectives"), str):
+        parsed_json["customer_business_objectives"] = {
+            "primary_objectives": ["Not Available"],
+            "secondary_objectives": ["Not Available"]
+        }
+
+    # Enforce fallback schema
     parsed_json = inject_fallbacks(parsed_json)
 
     account_name = parsed_json.get("account_overview", {}).get("account_name", "Account_Plan_Output")
