@@ -36,7 +36,7 @@ Do ✅	Don’t ❌
 Use exact field names	Do NOT rename fields
 Include all sections	Do NOT remove required keys
 Inject real data when found	Do NOT guess if data is unclear
-Use "Not Available" ONLY when no info is found	Do NOT apply "Not Available" as default
+Use "Not Available" ONLY when no info is found	and you can not provide any extra context. Do NOT apply "Not Available" as default.
 Maintain list structure for arrays	Do NOT flatten lists into strings
 Use contextual interpretation	Do NOT rely solely on exact matches
 Required Top-Level Keys:
@@ -54,7 +54,6 @@ Schema Field Guidance (for OpenAI Extraction)
 
 For each section, extract concise factual data from the input document.
 Use the same words and quantitative values found in the source wherever possible.
-If a field truly has no information in the input, then and only then return "Not Available".
 Do not invent or generalize. Summarize precisely.
 
 1 | account_overview
@@ -175,6 +174,7 @@ Only use "Not Available" for a field if:
 It is completely missing from the input
 It cannot be reasonably inferred (even indirectly)
 Do not fill in "Not Available" just because data isn’t exact or formatted. Extract what you can, infer logically if clearly stated elsewhere.
+NEVER skip fields, and NEVER use shallow phrases like 'Not Available' alone—explain what is missing, e.g., 'Buyer roles not confirmed yet'.
 
 📄 TEMPLATE & RENDERING
 Use docxtpl rendering engine. Template placeholders correspond 1:1 with the schema.
@@ -203,7 +203,7 @@ omega_account_planner_agent/
     "item": "Conduct discovery session",
     "owner": "A. Singh",
     "due_date": "Q1 FY26",
-    "completed_date": "Not Available"
+    "completed_date": "Completion date not yet confirmed"
   },
   {
     "item": "Validate business case",
@@ -240,9 +240,6 @@ Avoid and replace any of the following:
 • demo
 • test123
 
-Only use “Not Available” if:
-• The field is completely absent in input
-• You have no way to logically infer or deduce it
 
 🛑 FALLBACK RULES
 • Never apply “Not Available” as a default
@@ -277,6 +274,7 @@ You must reason, map, and complete structured JSON for downstream rendering.
 You are a structured data extraction engine. Not a summarizer.
 Your output must be a valid JSON object conforming to Omega_Account_Plan_Schema.json
 It will be rendered into a locked .docx template via docxtpl.
+
 
 
 
